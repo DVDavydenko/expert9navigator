@@ -13,7 +13,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyB4-bg-61Ta_-6RUkTKcakReuFklv4zxaA", authDomain: "expert9navigator.firebaseapp.com", projectId: "expert9navigator", storageBucket: "expert9navigator.firebasestorage.app", messagingSenderId: "119347627510", appId: "1:119347627510:web:58a9e5e674e121455a33d7" };
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'law-guide-9';
@@ -251,7 +251,7 @@
             const collRef = collection(db, 'artifacts', appId, 'public', 'data', 'students_results');
             unsubscribeTeacher = onSnapshot(collRef, (snapshot) => {
                 ui.teacherTableBody.innerHTML = '';
-                if (snapshot.empty) { ui.teacherTableBody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-500">Ще немає результатів учнів.</td></tr>'; return; }
+                if (snapshot.empty) { ui.teacherTableBody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Ще немає результатів учнів.</td></tr>'; return; }
                 let results = [];
                 snapshot.forEach(doc => results.push({id: doc.id, ...doc.data()}));
                 results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -274,10 +274,15 @@
                                     <p class="text-slate-700">${escapeHtml(data.creativeAnswer)}</p>
                                 </div>
                             </details>
+                        </td>
+                        <td class="p-4">
+                            <button onclick="resetStudentResult('${data.id}', '${escapeHtml(data.studentName)}')" style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                                Скинути
+                            </button>
                         </td>`;
                     ui.teacherTableBody.appendChild(tr);
                 });
-            }, (error) => { ui.teacherTableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-500">Помилка завантаження даних.</td></tr>'; });
+            }, (error) => { ui.teacherTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-500">Помилка завантаження даних.</td></tr>'; });
         }
 
         window.exitTeacherMode = function() {
@@ -286,6 +291,26 @@
             ui.loginOverlay.classList.remove('hidden');
             ui.teacherPassInput.value = '';
             ui.teacherError.classList.add('hidden');
+        }
+
+        window.resetStudentResult = async function(docId, studentName) {
+            if (!confirm("Видалити роботу учня " + studentName + "? Він зможе здати її знову.")) return;
+            try {
+                const docRef = doc(db, "artifacts", appId, "public", "data", "students_results", docId);
+                await deleteDoc(docRef);
+                showToast("✅ Роботу учня " + studentName + " видалено.");
+            } catch (error) {
+                console.error("Помилка видалення:", error);
+                showToast("❌ Помилка при видаленні. Спробуйте ще раз.");
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.createElement("div");
+            toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:4px;font-family:IBM Plex Sans,sans-serif;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
         }
 
         function escapeHtml(unsafe) {
@@ -793,10 +818,11 @@
                         <th>Дата / Час</th>
                         <th>Тести (авто)</th>
                         <th>Творче завдання</th>
+                        <th>Дія</th>
                     </tr>
                 </thead>
                 <tbody id="teacher-table-body">
-                    <tr><td colspan="6" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження даних...</td></tr>
+                    <tr><td colspan="7" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження даних...</td></tr>
                 </tbody>
             </table>
         </div>
