@@ -40,26 +40,35 @@
 
         const pools = {
             part1: [
-                { q: "Знайди зайве (не є адміністративним заходом впливу):", options: ["Попередження", "Догана", "Позбавлення волі", "Передача під нагляд батьків"], correct: 2 },
-                { q: "Знайди зайве (не є кримінальним покаранням):", options: ["Штраф", "Громадські роботи", "Позбавлення волі", "Догана"], correct: 3 },
-                { q: "Знайди зайве (злочин, за який судять з 16, а не з 14 років):", options: ["Вбивство", "Грабіж", "Безквитковий проїзд", "Крадіжка"], correct: 2 }
+                { q: "Знайди зайве (не є адміністративним заходом впливу щодо неповнолітніх):", options: ["Попередження", "Догана", "Позбавлення волі", "Передача під нагляд батьків"], correct: 2 },
+                { q: "Знайди зайве (не є кримінальним покаранням за ККУ):", options: ["Штраф", "Громадські роботи", "Позбавлення волі", "Догана"], correct: 3 },
+                { q: "Знайди зайве (злочин, за який відповідальність настає з 16, а не з 14 років):", options: ["Вбивство", "Грабіж", "Безквитковий проїзд", "Крадіжка"], correct: 2 },
+                { q: "Знайди зайве (не є принципом кримінальної відповідальності неповнолітніх):", options: ["Пом'якшення покарання", "Виховний вплив", "Довічне ув'язнення", "Можливість звільнення від покарання"], correct: 2 },
+                { q: "Знайди зайве (не відноситься до адміністративних правопорушень):", options: ["Куріння в громадських місцях", "Дрібне хуліганство", "Розбій", "Безквитковий проїзд"], correct: 2 }
             ],
             part2: [
                 { q: '"11-річний Микола вкрав велосипед, тому він буде відбувати покарання у виховній колонії". У чому помилка?', options: ["Велосипеди не крадуть", "Кримінальна відповідальність за крадіжку настає з 14 років, а не з 11", "Його оштрафують на 1000 грн"], correct: 1 },
-                { q: '"За розпивання алкоголю у парку 14-річного учня обов\'язково посадять у в\'язницю". У чому помилка?', options: ["За це передбачена адміністративна відповідальність (до 16 років відповідають батьки)", "Його просто відпустять", "Алкоголь можна пити з 14 років"], correct: 0 },
+                { q: '"За розпивання алкоголю у парку 14-річного учня обов'язково посадять у в'язницю". У чому помилка?', options: ["За це передбачена адміністративна відповідальність (до 16 років відповідають батьки)", "Його просто відпустять", "Алкоголь можна пити з 14 років"], correct: 0 },
                 { q: '"Якщо 15-річний підліток повідомив про мінування школи — це адміністративний проступок". У чому помилка?', options: ["Це дозволено як жарт", "Мінування штрафується лише на 50 грн", "Це кримінальний злочин (ст. 259 ККУ), відповідальність з 14 років"], correct: 2 },
-                { q: '"17-річного юнака засудили до довічного ув\'язнення за тяжкий злочин". У чому помилка?', options: ["Довічне ув'язнення не застосовується до осіб, які вчинили злочин до 18 років", "Довічне дають з 16 років", "Він має відбувати покарання вдома"], correct: 0 }
+                { q: '"17-річного юнака засудили до довічного ув'язнення за тяжкий злочин". У чому помилка?', options: ["Довічне ув'язнення не застосовується до осіб, які вчинили злочин до 18 років", "Довічне дають з 16 років", "Він має відбувати покарання вдома"], correct: 0 },
+                { q: '"13-річний підліток образив вчителя словесно — це кримінальний злочин". У чому помилка?', options: ["Образа є адміністративним проступком, кримінальна відповідальність настає з 16 років", "Словесна образа взагалі не є правопорушенням", "За це садять лише з 18 років"], correct: 0 },
+                { q: '"16-річний учень самостійно сплатив штраф за куріння в школі". У чому помилка?', options: ["Штраф за куріння не передбачений", "До 18 років штрафи платять лише батьки", "Адміністративний штраф неповнолітній може сплатити лише якщо має власний заробіток"], correct: 2 }
             ],
             part3: [
                 { q: "15-річний Сергій та 17-річний Андрій відібрали у перехожого телефон, погрожуючи ножем. Який це вид правопорушення і хто несе відповідальність?", options: ["Адміністративне, відповідатиме лише Андрій", "Кримінальне (розбій), відповідатимуть обоє (відповідальність з 14 років)", "Кримінальне, відповідатиме лише Андрій"], correct: 1 },
                 { q: "14-річна дівчина розмалювала маркером сидіння в автобусі. Її затримали. Хто буде нести відповідальність?", options: ["Сама дівчина (кримінальна відповідальність)", "Ніхто, це просто малюнок", "Батьки дівчини (за невиконання обов'язків щодо виховання, адмін. проступок)"], correct: 2 },
                 { q: "16-річний юнак їхав у тролейбусі без квитка і відмовився платити штраф контролеру. Хто нестиме юридичну відповідальність?", options: ["Батьки юнака", "Сам юнак (адміністративна відповідальність настає з 16 років)", "Школа, в якій він навчається"], correct: 1 },
-                { q: "13-річний підліток вкрав з магазину шоколадку. Які юридичні наслідки?", options: ["Його посадять у в'язницю", "Він не досяг віку кримінальної відповідальності (14 р.), шкоду відшкодують батьки", "Він заплатить адміністративний штраф"], correct: 1 }
+                { q: "13-річний підліток вкрав з магазину шоколадку. Які юридичні наслідки?", options: ["Його посадять у в'язницю", "Він не досяг віку кримінальної відповідальності (14 р.), шкоду відшкодують батьки", "Він заплатить адміністративний штраф"], correct: 1 },
+                { q: "15-річний підліток вночі зламав замок і проник до чужого гаражу. Яка відповідальність настане?", options: ["Адміністративна, бо він неповнолітній", "Кримінальна (незаконне проникнення + крадіжка), відповідальність з 14 років", "Жодної, він ще школяр"], correct: 1 },
+                { q: "17-річна учениця поширила в соцмережах персональні дані однокласника без його згоди. Яка відповідальність?", options: ["Кримінальна відповідальність з 14 років за розголошення таємниці", "Адміністративна відповідальність (повна, з 16 років)", "Жодної, соцмережі — не публічне місце"], correct: 1 }
             ],
             part4: [
                 "Уяви, що ти — соціальний працівник. Напиши коротку пораду (2-3 речення) підлітку, який вважає, що «до 18 років можна робити що завгодно, і мені нічого не буде».",
                 "Твій друг (14 років) хоче «заради жарту» подзвонити в поліцію і сказати, що вокзал заміновано. Як ти з юридичної точки зору відмовиш його від цього?",
-                "Поясни молодшому брату простими словами, у чому головна різниця між адміністративним проступком і кримінальним злочином."
+                "Поясни молодшому брату простими словами, у чому головна різниця між адміністративним проступком і кримінальним злочином.",
+                "Склади короткий «правовий пам'ятник» для учнів 9 класу: 3 речення про те, чому незнання закону не звільняє від відповідальності.",
+                "Уяви ситуацію: твій 15-річний друг випадково пошкодив чужий автомобіль. Опиши юридичні наслідки та хто і як має відшкодувати збитки.",
+                "Як би ти пояснив різницю між кримінальною та адміністративною відповідальністю на одному конкретному прикладі з реального шкільного життя?"
             ]
         };
 
@@ -130,11 +139,11 @@
         function shuffleArray(array) { return [...array].sort(() => 0.5 - Math.random()); }
 
         function generateRandomQuiz() {
-            const q1 = shuffleArray(pools.part1)[0];
-            const q2_pool = shuffleArray(pools.part2).slice(0, 2);
-            const q3_pool = shuffleArray(pools.part3).slice(0, 2);
-            const q4 = shuffleArray(pools.part4)[0];
-            generatedQuiz = { part1: q1, part2: q2_pool, part3: q3_pool, part4: q4 };
+            const q1_pool = shuffleArray(pools.part1).slice(0, 2); // 2 питання
+            const q2_pool = shuffleArray(pools.part2).slice(0, 3); // 3 питання
+            const q3_pool = shuffleArray(pools.part3).slice(0, 3); // 3 питання
+            const q4_pool = shuffleArray(pools.part4).slice(0, 2); // 2 творчих
+            generatedQuiz = { part1: q1_pool, part2: q2_pool, part3: q3_pool, part4: q4_pool };
             renderQuizUI();
         }
 
@@ -142,7 +151,7 @@
             let html = '';
             let qIndex = 0;
             html += `<div class="quiz-section"><div class="section-tag">Частина 01</div><h3 class="section-title">Експерт-теоретик</h3>`;
-            html += createRadioQuestionHTML(qIndex++, generatedQuiz.part1.q, generatedQuiz.part1.options);
+            generatedQuiz.part1.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
             html += `</div>`;
             html += `<div class="quiz-section"><div class="section-tag">Частина 02</div><h3 class="section-title">Юридичний детектив</h3>`;
             generatedQuiz.part2.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
@@ -150,10 +159,12 @@
             html += `<div class="quiz-section"><div class="section-tag">Частина 03</div><h3 class="section-title">Правовий консиліум</h3>`;
             generatedQuiz.part3.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
             html += `</div>`;
-            html += `<div class="quiz-section"><div class="section-tag">Частина 04</div><h3 class="section-title">Соціальний прогноз <span style="font-size:0.75rem;font-weight:400;opacity:0.6;">(Творче завдання)</span></h3>
-                <p class="quiz-prompt">${generatedQuiz.part4}</p>
-                <textarea id="creativeAnswer" rows="5" class="creative-textarea" placeholder="Напишіть вашу розгорнуту відповідь тут..."></textarea>
-            </div>`;
+            html += `<div class="quiz-section"><div class="section-tag">Частина 04</div><h3 class="section-title">Соціальний прогноз <span style="font-size:0.75rem;font-weight:400;opacity:0.6;">(Творчі завдання)</span></h3>`;
+            generatedQuiz.part4.forEach((prompt, i) => {
+                html += `<div class="question-block"><p class="question-text"><span class="q-num">Т${i+1}</span>${prompt}</p>
+                <textarea id="creativeAnswer_${i}" rows="4" class="creative-textarea" placeholder="Напишіть вашу відповідь тут..."></textarea></div>`;
+            });
+            html += `</div>`;
             ui.quizContainer.innerHTML = html;
         }
 
@@ -170,27 +181,37 @@
             if (!generatedQuiz) return;
             let scoreAuto = 0;
             let qIndex = 0;
-            const ans1 = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
-            if (ans1 && parseInt(ans1.value) === generatedQuiz.part1.correct) scoreAuto++;
+            // Частина 1 (2 питання)
+            generatedQuiz.part1.forEach(q => {
+                const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
+                if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
+            });
+            // Частина 2 (3 питання)
             generatedQuiz.part2.forEach(q => {
                 const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
                 if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
             });
+            // Частина 3 (3 питання)
             generatedQuiz.part3.forEach(q => {
                 const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
                 if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
             });
-            const creativeText = document.getElementById('creativeAnswer').value.trim();
-            if (!isAutoSubmit && creativeText.length < 10) {
-                alert("Будь ласка, дайте більш розгорнуту відповідь у Частині 4.");
+            // Частина 4 — 2 творчих
+            const creativeTexts = generatedQuiz.part4.map((_, i) => {
+                const el = document.getElementById(`creativeAnswer_${i}`);
+                return el ? el.value.trim() : '';
+            });
+            if (!isAutoSubmit && creativeTexts.some(t => t.length < 10)) {
+                alert("Будь ласка, дайте розгорнуту відповідь на обидва творчі завдання (Частина 4).");
                 return;
             }
+            const creativeText = creativeTexts.join('\n\n--- Завдання 2 ---\n\n');
             if (timerInterval) clearInterval(timerInterval);
             const submitBtn = document.getElementById('submit-btn');
             if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Відправлення..."; }
             const resultData = {
                 studentName: studentData.name, className: studentData.className,
-                scoreAuto: scoreAuto, totalAuto: 5,
+                scoreAuto: scoreAuto, totalAuto: 8,
                 creativePrompt: generatedQuiz.part4, creativeAnswer: creativeText,
                 timestamp: new Date().toISOString()
             };
@@ -209,7 +230,7 @@
         function showQuizCompletedState(score) {
             document.getElementById('simulator-form').classList.add('hidden');
             document.getElementById('simulator-result').classList.remove('hidden');
-            document.getElementById('final-score-display').textContent = `${score} / 5`;
+            document.getElementById('final-score-display').textContent = `${score} / 8`;
         }
 
         window.unlockQuiz = function() {
@@ -265,7 +286,7 @@
                         <td class="p-4 text-sm font-bold text-slate-800">${escapeHtml(data.studentName)}</td>
                         <td class="p-4 text-sm text-slate-600">${escapeHtml(data.className)}</td>
                         <td class="p-4 text-sm text-slate-500 font-mono">${dateStr}</td>
-                        <td class="p-4"><span class="score-badge ${data.scoreAuto >= 4 ? 'score-good' : 'score-mid'}">${data.scoreAuto} / 5</span></td>
+                        <td class="p-4"><span class="score-badge ${data.scoreAuto >= 6 ? 'score-good' : 'score-mid'}">${data.scoreAuto} / 8</span></td>
                         <td class="p-4 text-sm text-slate-600">
                             <details class="cursor-pointer">
                                 <summary class="font-semibold text-blue-600 hover:text-blue-900 cursor-pointer list-none flex items-center gap-1"><span>▶</span> Показати</summary>
@@ -985,8 +1006,8 @@
                         <div id="simulator-result" class="hidden result-screen">
                             <div class="result-icon">✅</div>
                             <h3 class="result-title">Роботу успішно збережено</h3>
-                            <p style="font-size:14px;color:var(--muted);margin-bottom:8px;">Ваш результат за тестову частину (1–3):</p>
-                            <span class="result-score" id="final-score-display">0 / 5</span>
+                            <p style="font-size:14px;color:var(--muted);margin-bottom:8px;">Ваш результат за тестову частину (Частини 1–3, 8 питань):</p>
+                            <span class="result-score" id="final-score-display">0 / 8</span>
                             <p class="result-note">Остаточну оцінку виставить вчитель після перевірки розгорнутої відповіді (Частина 4).</p>
                         </div>
                     </div>
