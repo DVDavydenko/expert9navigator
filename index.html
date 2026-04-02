@@ -6,1037 +6,551 @@
     <title>Правовий Навігатор: Відповідальність Неповнолітніх</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
-    
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDWJcqUyv_a0VgU74QWj3vs2_RcdOgrfJ8",
-            authDomain: "expert9navigator.firebaseapp.com",
-            projectId: "expert9navigator",
-            storageBucket: "expert9navigator.firebasestorage.app",
-            messagingSenderId: "119347627510",
-            appId: "1:119347627510:web:58a9e5e674e121455a33d7"
-        };
-        const APP_ID = 'law-guide-9';
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        let currentUser = null;
-        let studentData = { name: '', className: '' };
-        let generatedQuiz = null;
-        let hasInteractedWithSlider = false;
-        let timerInterval = null;
-        let timeLeft = 25 * 60;
-        let unsubscribeTeacher = null;
-
-        // ============ QUESTION POOLS ============
-        const pools = {
-            part1: [
-                { q: "Знайди зайве (не є адміністративним заходом впливу щодо неповнолітніх):", options: ["Попередження", "Догана", "Позбавлення волі", "Передача під нагляд батьків"], correct: 2 },
-                { q: "Знайди зайве (не є кримінальним покаранням за ККУ):", options: ["Штраф", "Громадські роботи", "Позбавлення волі", "Догана"], correct: 3 },
-                { q: "Знайди зайве (злочин, за який відповідальність настає з 16, а не з 14 років):", options: ["Вбивство", "Грабіж", "Безквитковий проїзд", "Крадіжка"], correct: 2 },
-                { q: "Знайди зайве (не є принципом кримінальної відповідальності неповнолітніх):", options: ["Пом'якшення покарання", "Виховний вплив", "Довічне ув'язнення", "Можливість звільнення від покарання"], correct: 2 },
-                { q: "Знайди зайве (не відноситься до адміністративних правопорушень):", options: ["Куріння в громадських місцях", "Дрібне хуліганство", "Розбій", "Безквитковий проїзд"], correct: 2 }
-            ],
-            part2: [
-                { q: '"11-річний Микола вкрав велосипед, тому він буде відбувати покарання у виховній колонії". У чому помилка?', options: ["Велосипеди не крадуть", "Кримінальна відповідальність за крадіжку настає з 14 років, а не з 11", "Його оштрафують на 1000 грн"], correct: 1 },
-                { q: '"За розпивання алкоголю у парку 14-річного учня обов'язково посадять у в'язницю". У чому помилка?', options: ["За це передбачена адміністративна відповідальність (до 16 років відповідають батьки)", "Його просто відпустять", "Алкоголь можна пити з 14 років"], correct: 0 },
-                { q: '"Якщо 15-річний підліток повідомив про мінування школи - це адміністративний проступок". У чому помилка?', options: ["Це дозволено як жарт", "Мінування штрафується лише на 50 грн", "Це кримінальний злочин (ст. 259 ККУ), відповідальність з 14 років"], correct: 2 },
-                { q: '"17-річного юнака засудили до довічного ув'язнення за тяжкий злочин". У чому помилка?', options: ["Довічне ув'язнення не застосовується до осіб, які вчинили злочин до 18 років", "Довічне дають з 16 років", "Він має відбувати покарання вдома"], correct: 0 },
-                { q: '"13-річний підліток образив вчителя словесно - це кримінальний злочин". У чому помилка?', options: ["Образа є адміністративним проступком, кримінальна відповідальність настає з 16 років", "Словесна образа взагалі не є правопорушенням", "За це садять лише з 18 років"], correct: 0 },
-                { q: '"16-річний учень самостійно сплатив штраф за куріння в школі". У чому помилка?', options: ["Штраф за куріння не передбачений", "До 18 років штрафи платять лише батьки", "Адміністративний штраф неповнолітній може сплатити лише якщо має власний заробіток"], correct: 2 }
-            ],
-            part3: [
-                { q: "15-річний Сергій та 17-річний Андрій відібрали у перехожого телефон, погрожуючи ножем. Який це вид правопорушення і хто несе відповідальність?", options: ["Адміністративне, відповідатиме лише Андрій", "Кримінальне (розбій), відповідатимуть обоє (відповідальність з 14 років)", "Кримінальне, відповідатиме лише Андрій"], correct: 1 },
-                { q: "14-річна дівчина розмалювала маркером сидіння в автобусі. Її затримали. Хто буде нести відповідальність?", options: ["Сама дівчина (кримінальна відповідальність)", "Ніхто, це просто малюнок", "Батьки дівчини (за невиконання обов'язків щодо виховання, адмін. проступок)"], correct: 2 },
-                { q: "16-річний юнак їхав у тролейбусі без квитка і відмовився платити штраф контролеру. Хто нестиме юридичну відповідальність?", options: ["Батьки юнака", "Сам юнак (адміністративна відповідальність настає з 16 років)", "Школа, в якій він навчається"], correct: 1 },
-                { q: "13-річний підліток вкрав з магазину шоколадку. Які юридичні наслідки?", options: ["Його посадять у в'язницю", "Він не досяг віку кримінальної відповідальності (14 р.), шкоду відшкодують батьки", "Він заплатить адміністративний штраф"], correct: 1 },
-                { q: "15-річний підліток вночі зламав замок і проник до чужого гаражу. Яка відповідальність настане?", options: ["Адміністративна, бо він неповнолітній", "Кримінальна (незаконне проникнення + крадіжка), відповідальність з 14 років", "Жодної, він ще школяр"], correct: 1 },
-                { q: "17-річна учениця поширила в соцмережах персональні дані однокласника без його згоди. Яка відповідальність?", options: ["Кримінальна відповідальність з 14 років за розголошення таємниці", "Адміністративна відповідальність (повна, з 16 років)", "Жодної, соцмережі - не публічне місце"], correct: 1 }
-            ],
-            part4: [
-                "Уяви, що ти — соціальний працівник. Напиши коротку пораду (2-3 речення) підлітку, який вважає, що до 18 років можна робити що завгодно, і мені нічого не буде.",
-                "Твій друг (14 років) хоче заради жарту подзвонити в поліцію і сказати, що вокзал заміновано. Як ти з юридичної точки зору відмовиш його від цього?",
-                "Поясни молодшому брату простими словами, у чому головна різниця між адміністративним проступком і кримінальним злочином.",
-                "Склади короткий правовий памятник для учнів 9 класу: 3 речення про те, чому незнання закону не звільняє від відповідальності.",
-                "Уяви ситуацію: твій 15-річний друг випадково пошкодив чужий автомобіль. Опиши юридичні наслідки та хто і як має відшкодувати збитки.",
-                "Як би ти пояснив різницю між кримінальною та адміністративною відповідальністю на одному конкретному прикладі з реального шкільного життя?"
-            ]
-        };
-
-        // ============ FIREBASE AUTH ============
-        async function initAuthApp() {
-            try {
-                await signInAnonymously(auth);
-            } catch (error) {
-                console.error("Auth error:", error);
-            }
-        }
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) currentUser = user;
-        });
-
-        // ============ STUDENT LOGIN ============
-        window._startApp = async function() {
-            const name = document.getElementById('studentName').value.trim();
-            const cls = document.getElementById('studentClass').value.trim();
-            const loginError = document.getElementById('login-error');
-
-            if (!name || !cls) {
-                loginError.textContent = "Будь ласка, введіть ПІБ та клас.";
-                loginError.classList.remove('hidden');
-                return;
-            }
-            if (name.length < 5) {
-                loginError.textContent = "Введіть повне прізвище та ім'я.";
-                loginError.classList.remove('hidden');
-                return;
-            }
-
-            studentData = { name, className: cls };
-            document.getElementById('login-overlay').classList.add('hidden');
-            document.getElementById('main-content').classList.remove('hidden');
-            setTimeout(initCharts, 100);
-            await checkSubmissionStatus();
-        };
-
-        // ============ QUIZ LOGIC ============
-        async function checkSubmissionStatus() {
-            if (!currentUser) { generateRandomQuiz(); return; }
-            try {
-                const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', currentUser.uid);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    showQuizCompletedState(docSnap.data().scoreAuto);
-                } else {
-                    generateRandomQuiz();
-                }
-            } catch (e) { generateRandomQuiz(); }
-        }
-
-        function shuffleArray(array) { return [...array].sort(() => 0.5 - Math.random()); }
-
-        function generateRandomQuiz() {
-            generatedQuiz = {
-                part1: shuffleArray(pools.part1).slice(0, 2),
-                part2: shuffleArray(pools.part2).slice(0, 3),
-                part3: shuffleArray(pools.part3).slice(0, 3),
-                part4: shuffleArray(pools.part4).slice(0, 2)
-            };
-            renderQuizUI();
-        }
-
-        function renderQuizUI() {
-            let html = '';
-            let qIndex = 0;
-
-            html += `<div class="quiz-section"><div class="section-tag">Частина 01</div><h3 class="section-title">Експерт-теоретик</h3>`;
-            generatedQuiz.part1.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
-            html += `</div>`;
-
-            html += `<div class="quiz-section"><div class="section-tag">Частина 02</div><h3 class="section-title">Юридичний детектив</h3>`;
-            generatedQuiz.part2.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
-            html += `</div>`;
-
-            html += `<div class="quiz-section"><div class="section-tag">Частина 03</div><h3 class="section-title">Правовий консиліум</h3>`;
-            generatedQuiz.part3.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
-            html += `</div>`;
-
-            html += `<div class="quiz-section"><div class="section-tag">Частина 04</div><h3 class="section-title">Соціальний прогноз <span style="font-size:0.75rem;font-weight:400;opacity:0.6;">(Творчі завдання)</span></h3>`;
-            generatedQuiz.part4.forEach((prompt, i) => {
-                html += `<div class="question-block">
-                    <p class="question-text"><span class="q-num">Т${i+1}</span>${prompt}</p>
-                    <textarea id="creativeAnswer_${i}" rows="4" class="creative-textarea" placeholder="Напишіть вашу відповідь тут..."></textarea>
-                </div>`;
-            });
-            html += `</div>`;
-
-            document.getElementById('dynamic-quiz').innerHTML = html;
-        }
-
-        function createRadioQuestionHTML(index, question, options) {
-            let html = `<div class="question-block"><p class="question-text"><span class="q-num">${index + 1}</span>${question}</p><div class="options-list">`;
-            options.forEach((opt, optIdx) => {
-                html += `<label class="option-label"><input type="radio" name="q_${index}" value="${optIdx}" class="option-radio"><span class="option-marker"></span><span class="option-text">${opt}</span></label>`;
-            });
-            html += `</div></div>`;
-            return html;
-        }
-
-        window._submitQuiz = async function(isAutoSubmit = false) {
-            if (!generatedQuiz) return;
-            let scoreAuto = 0;
-            let qIndex = 0;
-
-            generatedQuiz.part1.forEach(q => {
-                const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
-                if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
-            });
-            generatedQuiz.part2.forEach(q => {
-                const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
-                if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
-            });
-            generatedQuiz.part3.forEach(q => {
-                const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
-                if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
-            });
-
-            const creativeTexts = generatedQuiz.part4.map((_, i) => {
-                const el = document.getElementById(`creativeAnswer_${i}`);
-                return el ? el.value.trim() : '';
-            });
-
-            if (!isAutoSubmit && creativeTexts.some(t => t.length < 10)) {
-                alert("Будь ласка, дайте розгорнуту відповідь на обидва творчі завдання (Частина 4).");
-                return;
-            }
-
-            if (timerInterval) clearInterval(timerInterval);
-
-            const submitBtn = document.getElementById('submit-btn');
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Відправлення..."; }
-
-            const resultData = {
-                studentName: studentData.name,
-                className: studentData.className,
-                scoreAuto: scoreAuto,
-                totalAuto: 8,
-                creativePrompt: generatedQuiz.part4.join(' | '),
-                creativeAnswer: creativeTexts.join('\n\n--- Завдання 2 ---\n\n'),
-                timestamp: new Date().toISOString()
-            };
-
-            if (currentUser) {
-                try {
-                    const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', currentUser.uid);
-                    await setDoc(docRef, resultData);
-                } catch (error) {
-                    console.warn("Firebase error:", error);
-                }
-            }
-            showQuizCompletedState(scoreAuto);
-        };
-
-        function showQuizCompletedState(score) {
-            document.getElementById('simulator-form').classList.add('hidden');
-            document.getElementById('simulator-result').classList.remove('hidden');
-            document.getElementById('final-score-display').textContent = `${score} / 8`;
-        }
-
-        window._unlockQuiz = function() {
-            if (!hasInteractedWithSlider) return;
-            document.getElementById('quiz-lock-screen').classList.add('hidden');
-            document.getElementById('quiz-active-screen').classList.remove('hidden');
-            document.getElementById('quiz-active-screen').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            const timerDisplay = document.getElementById('timer-display');
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                const m = Math.floor(timeLeft / 60);
-                const s = timeLeft % 60;
-                timerDisplay.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-                if (timeLeft <= 60) timerDisplay.classList.add('timer-urgent');
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    alert("Час вичерпано! Роботу буде автоматично відправлено.");
-                    window.submitQuiz(true);
-                }
-            }, 1000);
-        };
-
-        // ============ TEACHER ============
-        window._showTeacherLogin = function() {
-            document.getElementById('teacher-login-modal').classList.remove('hidden');
-        };
-
-        window._closeTeacherLogin = function() {
-            document.getElementById('teacher-login-modal').classList.add('hidden');
-            document.getElementById('teacher-password').value = '';
-            document.getElementById('teacher-error').classList.add('hidden');
-        };
-
-        window._loginTeacher = function() {
-            const pass = document.getElementById('teacher-password').value;
-            if (pass === 'TechDev999') {
-                document.getElementById('teacher-login-modal').classList.add('hidden');
-                document.getElementById('login-overlay').classList.add('hidden');
-                document.getElementById('main-content').classList.add('hidden');
-                document.getElementById('teacher-dashboard').classList.remove('hidden');
-                loadTeacherData();
-            } else {
-                document.getElementById('teacher-error').classList.remove('hidden');
-            }
-        };
-
-        function loadTeacherData() {
-            const tbody = document.getElementById('teacher-table-body');
-            tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження...</td></tr>';
-
-            const collRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students_results');
-            unsubscribeTeacher = onSnapshot(collRef, (snapshot) => {
-                tbody.innerHTML = '';
-                if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Ще немає результатів учнів.</td></tr>';
-                    return;
-                }
-                let results = [];
-                snapshot.forEach(d => results.push({ id: d.id, ...d.data() }));
-                results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-                results.forEach((data, index) => {
-                    const dateStr = new Date(data.timestamp).toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-                    const tr = document.createElement('tr');
-                    tr.className = 'teacher-row';
-                    tr.innerHTML = `
-                        <td class="p-4 text-sm text-slate-400 font-mono">${String(index+1).padStart(2,'0')}</td>
-                        <td class="p-4 text-sm font-bold text-slate-800">${escapeHtml(data.studentName)}</td>
-                        <td class="p-4 text-sm text-slate-600">${escapeHtml(data.className)}</td>
-                        <td class="p-4 text-sm text-slate-500 font-mono">${dateStr}</td>
-                        <td class="p-4"><span class="score-badge ${data.scoreAuto >= 6 ? 'score-good' : 'score-mid'}">${data.scoreAuto} / 8</span></td>
-                        <td class="p-4 text-sm text-slate-600">
-                            <details class="cursor-pointer">
-                                <summary class="font-semibold text-blue-600 hover:text-blue-900 list-none flex items-center gap-1"><span>▶</span> Показати</summary>
-                                <div class="mt-2 p-3 bg-slate-50 rounded-lg text-xs border border-slate-200">
-                                    <p class="italic text-slate-400 mb-1">${escapeHtml(data.creativePrompt)}</p>
-                                    <p class="text-slate-700">${escapeHtml(data.creativeAnswer)}</p>
-                                </div>
-                            </details>
-                        </td>
-                        <td class="p-4">
-                            <button onclick="resetStudentResult('${data.id}', '${escapeHtml(data.studentName)}')"
-                                style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;"
-                                onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-                                Скинути
-                            </button>
-                        </td>`;
-                    tbody.appendChild(tr);
-                });
-            }, (error) => {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#dc2626;">Помилка завантаження.</td></tr>';
-            });
-        }
-
-        window._resetStudentResult = async function(docId, studentName) {
-            if (!confirm(`Видалити роботу учня "${studentName}"? Він зможе здати її знову.`)) return;
-            try {
-                await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', docId));
-                showToast(`Роботу учня "${studentName}" видалено.`);
-            } catch (e) {
-                showToast("Помилка при видаленні. Спробуйте ще раз.");
-            }
-        };
-
-        window._exitTeacherMode = function() {
-            if (unsubscribeTeacher) unsubscribeTeacher();
-            document.getElementById('teacher-dashboard').classList.add('hidden');
-            document.getElementById('login-overlay').classList.remove('hidden');
-            document.getElementById('teacher-password').value = '';
-            document.getElementById('teacher-error').classList.add('hidden');
-        };
-
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:4px;font-family:sans-serif;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3500);
-        }
-
-        function escapeHtml(unsafe) {
-            return (unsafe || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-        }
-
-        // ============ AGE SLIDER ============
-        const ageData = {
-            10: { criminal: "Не несе кримінальної відповідальності.", admin: "Не несе адміністративної відповідальності.", level: 0 },
-            11: { criminal: "Не несе кримінальної відповідальності. Можливі примусові заходи виховного характеру.", admin: "Не несе адміністративної відповідальності.", level: 0 },
-            12: { criminal: "Не несе кримінальної відповідальності. Можливе поміщення до спеціальної школи.", admin: "Не несе адміністративної відповідальності.", level: 0 },
-            13: { criminal: "Не несе кримінальної відповідальності (останній рік повної непідсудності).", admin: "Не несе адміністративної відповідальності. Відповідають батьки.", level: 0 },
-            14: { criminal: "Відповідальність за тяжкі та особливо тяжкі злочини (вбивство, крадіжка, грабіж).", admin: "Не несе адміністративної відповідальності. Відповідають батьки.", level: 1 },
-            15: { criminal: "Відповідальність за тяжкі злочини продовжує діяти.", admin: "Не несе адміністративної відповідальності. Відповідають батьки.", level: 1 },
-            16: { criminal: "ПОВНА кримінальна відповідальність за всі види злочинів.", admin: "Адміністративна відповідальність. Заходи: попередження, догана.", level: 2 },
-            17: { criminal: "Повна кримінальна відповідальність.", admin: "Адміністративна відповідальність. Можливий штраф за наявності заробітку.", level: 2 },
-            18: { criminal: "Відповідальність як ДОРОСЛОЇ особи. Жодних поблажок.", admin: "Повна адміністративна відповідальність на загальних підставах.", level: 2 }
-        };
-
-        function updateAgeInfo(age) {
-            const d = ageData[age];
-            document.getElementById('currentAgeDisplay').textContent = age;
-            document.getElementById('criminalStatus').textContent = d.criminal;
-            document.getElementById('adminStatus').textContent = d.admin;
-            const colors = ['#2563eb','#d97706','#dc2626'];
-            const labels = ['Безпечна зона','Часткова відповідальність','Повна відповідальність'];
-            const pct = ((age - 10) / 8) * 100;
-            document.getElementById('status-bar').style.background = `linear-gradient(90deg, ${colors[d.level]} ${pct}%, #e2e8f0 ${pct}%)`;
-            document.getElementById('currentAgeDisplay').style.color = colors[d.level];
-            document.getElementById('status-label').textContent = labels[d.level];
-            document.getElementById('status-label').style.color = colors[d.level];
-        }
-
-        // ============ CHARTS ============
-        function initCharts() {
-            const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans', size: 12 }, color: '#475569', padding: 16, usePointStyle: true } } } };
-
-            const ctxO = document.getElementById('offensesChart');
-            if (ctxO) new Chart(ctxO.getContext('2d'), {
-                type: 'doughnut',
-                data: { labels: ['Майнові (Крадіжки)', 'Хуліганство', 'Наркотичні', 'Інші'], datasets: [{ data: [55,25,10,10], backgroundColor: ['#1e40af','#f59e0b','#ef4444','#cbd5e1'], borderWidth: 3, borderColor: '#fff' }] },
-                options: { ...opts, cutout: '65%' }
-            });
-
-            const ctxP = document.getElementById('punishmentChart');
-            if (ctxP) new Chart(ctxP.getContext('2d'), {
-                type: 'bar',
-                data: { labels: ['Загальне', 'Тяжкі злочини', 'Довічне'], datasets: [
-                    { label: 'Неповнолітні', data: [10,15,0], backgroundColor: '#93c5fd', borderRadius: 6, borderSkipped: false },
-                    { label: 'Дорослі', data: [15,15,25], backgroundColor: '#1e40af', borderRadius: 6, borderSkipped: false }
-                ]},
-                options: { ...opts, scales: { y: { beginAtZero: true, title: { display: true, text: 'Термін (років)', color: '#64748b' }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
-            });
-        }
-
-        // ============ INIT ============
-        document.addEventListener('DOMContentLoaded', () => {
-            // Slider
-            const slider = document.getElementById('ageSlider');
-            slider.addEventListener('input', (e) => {
-                updateAgeInfo(parseInt(e.target.value));
-                if (!hasInteractedWithSlider) {
-                    hasInteractedWithSlider = true;
-                    const btn = document.getElementById('unlock-quiz-btn');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.classList.remove('btn-locked');
-                        btn.classList.add('btn-unlocked');
-                        btn.textContent = 'Розпочати практичну роботу (25 хвилин) →';
-                    }
-                }
-            });
-            updateAgeInfo(14);
-
-            // Start Firebase auth
-            initAuthApp();
-        });
-
-    </script>
-    <!-- Bridge: expose module functions to global scope for onclick handlers -->
-    <script>
-        // These will be populated by the module after DOMContentLoaded
-        function startApp() { if(window._startApp) window._startApp(); }
-        function showTeacherLogin() { if(window._showTeacherLogin) window._showTeacherLogin(); }
-        function closeTeacherLogin() { if(window._closeTeacherLogin) window._closeTeacherLogin(); }
-        function loginTeacher() { if(window._loginTeacher) window._loginTeacher(); }
-        function unlockQuiz() { if(window._unlockQuiz) window._unlockQuiz(); }
-        function submitQuiz(auto) { if(window._submitQuiz) window._submitQuiz(auto); }
-        function exitTeacherMode() { if(window._exitTeacherMode) window._exitTeacherMode(); }
-        function resetStudentResult(id, name) { if(window._resetStudentResult) window._resetStudentResult(id, name); }
-    </script>
-
-
+    <!-- Firebase compat (НЕ module — без проблем з scope) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <style>
-        :root {
-            --navy: #0f1b35;
-            --navy-mid: #1e3a5f;
-            --blue: #1d4ed8;
-            --blue-light: #3b82f6;
-            --gold: #c9a84c;
-            --cream: #f9f6f0;
-            --ink: #1a202c;
-            --muted: #64748b;
-            --border: #e2e8f0;
-        }
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background: var(--cream);
-            color: var(--ink);
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        /* TYPOGRAPHY */
-        .display-font { font-family: 'Playfair Display', Georgia, serif; }
-        .mono-font { font-family: 'IBM Plex Mono', monospace; }
-
-        /* FULL SCREEN OVERLAY */
-        .full-screen-overlay {
-            position: fixed; inset: 0;
-            background: var(--navy);
-            z-index: 50;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-        }
-
-        /* LOGIN CARD */
-        .login-card {
-            background: #fff;
-            border-radius: 2px;
-            max-width: 440px; width: 100%;
-            padding: 48px 40px;
-            box-shadow: 0 40px 80px rgba(0,0,0,0.4);
-            border-top: 4px solid var(--gold);
-            position: relative;
-        }
-        .login-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--gold), transparent);
-        }
-        .login-label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-        .login-input {
-            width: 100%; padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            background: #fafafa;
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-size: 15px;
-            color: var(--ink);
-            outline: none;
-            border-radius: 2px;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-        .login-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29,78,216,0.1); }
-        .login-btn {
-            width: 100%; padding: 14px;
-            background: var(--navy);
-            color: #fff;
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-weight: 600; font-size: 14px;
-            letter-spacing: 0.05em;
-            border: none; cursor: pointer;
-            border-radius: 2px;
-            transition: background 0.2s;
-            margin-top: 8px;
-        }
-        .login-btn:hover:not(:disabled) { background: var(--blue); }
-        .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .login-badge {
-            display: inline-block;
-            background: rgba(201,168,76,0.15);
-            border: 1px solid rgba(201,168,76,0.4);
-            color: var(--gold);
-            font-size: 11px; font-weight: 600;
-            padding: 4px 12px;
-            border-radius: 20px;
-            letter-spacing: 0.08em;
-            margin-bottom: 24px;
-        }
-
-        /* HEADER */
-        .site-header {
-            background: var(--navy);
-            border-bottom: 2px solid var(--gold);
-            padding: 0;
-        }
-        .header-inner {
-            max-width: 1100px; margin: 0 auto;
-            padding: 28px 32px;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .header-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
-        .header-title { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: #fff; }
-        .header-sub { font-size: 13px; color: #94a3b8; margin-top: 4px; }
-        .header-tag { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #94a3b8; font-size: 12px; padding: 8px 16px; border-radius: 2px; }
-
-        /* MAIN LAYOUT */
-        .page-main { max-width: 1100px; margin: 0 auto; padding: 48px 32px; }
-        .section-gap { margin-bottom: 64px; }
-
-        /* INSTRUCTION BOX */
-        .instruction-box {
-            background: #fff;
-            border: 1px solid var(--border);
-            border-left: 4px solid var(--blue);
-            padding: 24px 28px;
-            border-radius: 2px;
-        }
-        .instruction-box h2 { font-size: 14px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--navy); margin-bottom: 8px; }
-        .instruction-box p { color: var(--muted); font-size: 14px; }
-
-        /* SECTION HEADERS */
-        .sec-header { display: flex; align-items: baseline; gap: 16px; margin-bottom: 28px; }
-        .sec-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--gold); letter-spacing: 0.05em; }
-        .sec-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--navy); }
-
-        /* AGE SIMULATOR */
-        .simulator-panel {
-            background: #fff;
-            border: 1px solid var(--border);
-            border-top: 3px solid var(--navy);
-            border-radius: 2px;
-            padding: 40px;
-        }
-        .age-display-row { display: flex; align-items: baseline; gap: 8px; justify-content: center; margin: 32px 0 16px; }
-        .age-number { font-family: 'Playfair Display', serif; font-size: 80px; font-weight: 900; line-height: 1; transition: color 0.3s; }
-        .age-label { font-size: 18px; color: var(--muted); font-weight: 300; }
-
-        .slider-styled {
-            -webkit-appearance: none; appearance: none;
-            width: 100%; height: 4px; background: #e2e8f0;
-            border-radius: 0; outline: none; cursor: pointer;
-        }
-        .slider-styled::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none;
-            width: 20px; height: 20px;
-            background: var(--navy);
-            border: 3px solid var(--gold);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-        .slider-styled::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        .slider-labels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #94a3b8; letter-spacing: 0.05em; margin-top: 8px; }
-
-        #status-bar { height: 6px; border-radius: 0; margin: 16px 0 8px; transition: background 0.5s; }
-        #status-label { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-align: center; text-transform: uppercase; transition: color 0.3s; }
-
-        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
-        @media (max-width: 640px) { .info-cards { grid-template-columns: 1fr; } }
-        .info-card {
-            border: 1px solid var(--border);
-            padding: 20px 24px;
-            border-radius: 2px;
-            background: #fafafa;
-        }
-        .info-card-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
-        .info-card-body { font-size: 14px; color: var(--ink); font-weight: 500; }
-
-        /* CHARTS */
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
-        .chart-card {
-            background: #fff;
-            border: 1px solid var(--border);
-            border-radius: 2px;
-            padding: 28px;
-        }
-        .chart-card-title { font-family: 'Playfair Display', serif; font-size: 17px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
-        .chart-card-sub { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
-        .chart-container { position: relative; height: 280px; }
-
-        /* COMPARISON */
-        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        @media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } }
-        .compare-card { border: 1px solid var(--border); border-radius: 2px; padding: 32px; background: #fff; }
-        .compare-card.admin { border-top: 4px solid #f59e0b; }
-        .compare-card.criminal { border-top: 4px solid #dc2626; }
-        .compare-icon { font-size: 36px; margin-bottom: 12px; }
-        .compare-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; margin-bottom: 20px; }
-        .compare-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        .compare-row:last-child { border-bottom: none; }
-        .compare-key { font-weight: 600; min-width: 140px; color: var(--muted); font-size: 13px; }
-        .compare-val { color: var(--ink); }
-
-        /* QUIZ SECTION */
-        .quiz-wrapper {
-            background: var(--navy);
-            border-radius: 2px;
-            padding: 48px 40px;
-        }
-        @media (max-width: 640px) { .quiz-wrapper { padding: 28px 20px; } }
-        .quiz-inner {
-            background: #fff;
-            border-radius: 2px;
-            max-width: 860px;
-            margin: 0 auto;
-            padding: 40px;
-        }
-        @media (max-width: 640px) { .quiz-inner { padding: 24px 20px; } }
-
-        /* Lock screen */
-        .lock-screen { text-align: center; padding: 60px 20px; }
-        .lock-icon { font-size: 56px; margin-bottom: 20px; }
-        .lock-title { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--navy); margin-bottom: 12px; }
-        .lock-desc { font-size: 14px; color: var(--muted); max-width: 480px; margin: 0 auto 28px; line-height: 1.7; }
-        .btn-locked { background: #e2e8f0; color: #94a3b8; border: none; padding: 14px 28px; font-family: 'IBM Plex Sans', sans-serif; font-weight: 600; font-size: 14px; border-radius: 2px; cursor: not-allowed; }
-        .btn-unlocked {
-            background: var(--blue); color: #fff;
-            border: none; padding: 14px 32px;
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-weight: 600; font-size: 14px;
-            border-radius: 2px; cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-unlocked:hover { background: #1d40b0; }
-
-        /* Timer */
-        .timer-bar {
-            display: flex; justify-content: space-between; align-items: center;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 2px;
-            padding: 16px 20px;
-            margin-bottom: 32px;
-        }
-        .timer-label { font-size: 13px; font-weight: 600; color: #92400e; letter-spacing: 0.05em; text-transform: uppercase; }
-        #timer-display { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 600; color: #b45309; }
-        .timer-urgent { color: #dc2626 !important; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-
-        /* Quiz sections */
-        .quiz-section { margin-bottom: 40px; padding-bottom: 40px; border-bottom: 1px solid #f1f5f9; }
-        .quiz-section:last-of-type { border-bottom: none; }
-        .section-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin-bottom: 6px; }
-        .section-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 24px; }
-
-        /* Questions */
-        .question-block { margin-bottom: 24px; }
-        .question-text { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 12px; display: flex; gap: 10px; }
-        .q-num { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--gold); min-width: 20px; padding-top: 1px; }
-        .options-list { display: flex; flex-direction: column; gap: 8px; }
-        .option-label {
-            display: flex; align-items: center; gap: 12px;
-            padding: 12px 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 2px; cursor: pointer;
-            background: #fafafa;
-            transition: border-color 0.15s, background 0.15s;
-            font-size: 14px; color: #374151;
-        }
-        .option-label:hover { border-color: var(--blue); background: #eff6ff; }
-        .option-radio { display: none; }
-        .option-radio:checked + .option-marker { background: var(--blue); border-color: var(--blue); }
-        .option-radio:checked ~ .option-text { color: var(--blue); font-weight: 600; }
-        .option-label:has(.option-radio:checked) { border-color: var(--blue); background: #eff6ff; }
-        .option-marker { width: 16px; height: 16px; min-width: 16px; border-radius: 50%; border: 2px solid #d1d5db; transition: all 0.15s; }
-
-        /* Quiz prompt & textarea */
-        .quiz-prompt { font-size: 14px; color: var(--ink); background: #f8fafc; border: 1px solid var(--border); border-left: 3px solid var(--blue); padding: 16px 20px; margin-bottom: 16px; line-height: 1.7; border-radius: 0 2px 2px 0; }
-        .creative-textarea {
-            width: 100%; padding: 14px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 2px;
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-size: 14px; color: var(--ink);
-            resize: vertical; outline: none;
-            transition: border-color 0.2s;
-        }
-        .creative-textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29,78,216,0.08); }
-
-        /* Submit button */
-        .submit-btn {
-            width: 100%; padding: 16px;
-            background: var(--navy); color: #fff;
-            border: none; border-radius: 2px;
-            font-family: 'IBM Plex Sans', sans-serif;
-            font-weight: 700; font-size: 15px;
-            letter-spacing: 0.04em;
-            cursor: pointer; transition: background 0.2s;
-            margin-top: 24px;
-        }
-        .submit-btn:hover:not(:disabled) { background: var(--blue); }
-        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        /* Result */
-        .result-screen { text-align: center; padding: 60px 20px; }
-        .result-icon { font-size: 64px; margin-bottom: 24px; }
-        .result-title { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--navy); margin-bottom: 12px; }
-        .result-score { font-family: 'IBM Plex Mono', monospace; font-size: 56px; font-weight: 600; color: var(--blue); display: block; margin: 16px 0; }
-        .result-note { font-size: 14px; color: var(--muted); max-width: 400px; margin: 0 auto; }
-
-        /* TEACHER DASHBOARD */
-        .teacher-wrap { background: var(--cream); min-height: 100vh; }
-        .teacher-header { background: var(--navy); border-bottom: 2px solid var(--gold); padding: 24px 32px; display: flex; justify-content: space-between; align-items: center; }
-        .teacher-title { font-family: 'Playfair Display', serif; font-size: 24px; color: #fff; }
-        .exit-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; padding: 8px 20px; border-radius: 2px; cursor: pointer; transition: background 0.2s; }
-        .exit-btn:hover { background: rgba(255,255,255,0.2); }
-        .teacher-body { max-width: 1200px; margin: 0 auto; padding: 32px; }
-        .teacher-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--border); }
-        .teacher-table th { padding: 14px 16px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); background: #f8fafc; border-bottom: 2px solid var(--border); }
-        .teacher-row { border-bottom: 1px solid #f1f5f9; }
-        .teacher-row:hover { background: #f8fafc; }
-        .score-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
-        .score-good { background: #dcfce7; color: #166534; }
-        .score-mid { background: #fef3c7; color: #92400e; }
-
-        /* MODAL */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15,27,53,0.7); z-index: 100; display: flex; justify-content: center; align-items: center; padding: 16px; }
-        .modal-card { background: #fff; border-top: 4px solid var(--gold); border-radius: 2px; max-width: 400px; width: 100%; padding: 32px; }
-        .modal-title { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--navy); margin-bottom: 8px; }
-        .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
-        .modal-input { width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; border-radius: 2px; outline: none; margin-bottom: 8px; }
-        .modal-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(29,78,216,0.08); }
-        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-        .modal-cancel { background: none; border: 1px solid #d1d5db; color: var(--muted); padding: 10px 20px; border-radius: 2px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; cursor: pointer; }
-        .modal-submit { background: var(--navy); color: #fff; border: none; padding: 10px 24px; border-radius: 2px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .modal-submit:hover { background: var(--blue); }
-
-        /* FOOTER */
-        .site-footer { background: var(--navy); border-top: 1px solid rgba(255,255,255,0.08); padding: 24px 32px; text-align: center; }
-        .site-footer p { font-size: 12px; color: #475569; }
-
-        /* DIVIDER */
-        .ornament { display: flex; align-items: center; gap: 16px; margin: 48px 0; }
-        .ornament-line { flex: 1; height: 1px; background: var(--border); }
-        .ornament-mark { font-size: 16px; color: var(--gold); }
-
-        @media (max-width: 640px) {
-            .header-inner { flex-direction: column; gap: 16px; }
-            .header-tag { display: none; }
-            .page-main { padding: 32px 16px; }
-            .quiz-wrapper { padding: 20px 16px; }
-            .compare-grid { grid-template-columns: 1fr; }
-        }
+        :root { --navy:#0f1b35;--blue:#1d4ed8;--gold:#c9a84c;--cream:#f9f6f0;--ink:#1a202c;--muted:#64748b;--border:#e2e8f0; }
+        body{background:var(--cream);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;font-size:15px;line-height:1.6;overflow-x:hidden;}
+        .full-overlay{position:fixed;inset:0;background:var(--navy);z-index:50;display:flex;justify-content:center;align-items:center;padding:16px;}
+        .login-card{background:#fff;border-radius:2px;max-width:440px;width:100%;padding:48px 40px;box-shadow:0 40px 80px rgba(0,0,0,.4);border-top:4px solid var(--gold);}
+        .lbl{display:block;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+        .inp{width:100%;padding:12px 16px;border:1px solid #d1d5db;background:#fafafa;font-family:'IBM Plex Sans',sans-serif;font-size:15px;color:var(--ink);outline:none;border-radius:2px;box-sizing:border-box;transition:border-color .2s;}
+        .inp:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(29,78,216,.1);}
+        .btn-main{width:100%;padding:14px;background:var(--navy);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;border:none;cursor:pointer;border-radius:2px;transition:background .2s;}
+        .btn-main:hover{background:var(--blue);}
+        .badge{display:inline-block;background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);color:var(--gold);font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;letter-spacing:.08em;margin-bottom:24px;}
+        .site-header{background:var(--navy);border-bottom:2px solid var(--gold);}
+        .hdr{max-width:1100px;margin:0 auto;padding:28px 32px;display:flex;justify-content:space-between;align-items:center;}
+        .hdr-eye{font-size:11px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+        .hdr-title{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#fff;}
+        .hdr-sub{font-size:13px;color:#94a3b8;margin-top:4px;}
+        .hdr-tag{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#94a3b8;font-size:12px;padding:8px 16px;border-radius:2px;}
+        .page-main{max-width:1100px;margin:0 auto;padding:48px 32px;}
+        .sg{margin-bottom:64px;}
+        .sh{display:flex;align-items:baseline;gap:16px;margin-bottom:28px;}
+        .sn{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--gold);}
+        .st{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--navy);}
+        .instr{background:#fff;border:1px solid var(--border);border-left:4px solid var(--blue);padding:24px 28px;border-radius:2px;}
+        .instr h2{font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--navy);margin-bottom:8px;}
+        .instr p{color:var(--muted);font-size:14px;}
+        .sim-panel{background:#fff;border:1px solid var(--border);border-top:3px solid var(--navy);border-radius:2px;padding:40px;}
+        .age-row{display:flex;align-items:baseline;gap:8px;justify-content:center;margin:32px 0 16px;}
+        .age-num{font-family:'Playfair Display',serif;font-size:80px;font-weight:900;line-height:1;transition:color .3s;}
+        .slider{-webkit-appearance:none;width:100%;height:4px;background:#e2e8f0;border-radius:0;outline:none;cursor:pointer;}
+        .slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--navy);border:3px solid var(--gold);border-radius:50%;cursor:pointer;}
+        .slbl{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:#94a3b8;margin-top:8px;}
+        #sbar{height:6px;margin:16px 0 8px;transition:background .5s;}
+        #slbl{font-size:12px;font-weight:600;letter-spacing:.08em;text-align:center;text-transform:uppercase;transition:color .3s;}
+        .icards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px;}
+        @media(max-width:640px){.icards{grid-template-columns:1fr;}}
+        .icard{border:1px solid var(--border);padding:20px 24px;border-radius:2px;background:#fafafa;}
+        .icard-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+        .icard-body{font-size:14px;color:var(--ink);font-weight:500;}
+        .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+        @media(max-width:768px){.cgrid{grid-template-columns:1fr;}}
+        .ccard{background:#fff;border:1px solid var(--border);border-radius:2px;padding:28px;}
+        .ccard-t{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:4px;}
+        .ccard-s{font-size:12px;color:var(--muted);margin-bottom:20px;}
+        .cch{position:relative;height:280px;}
+        .compgrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+        @media(max-width:768px){.compgrid{grid-template-columns:1fr;}}
+        .compcard{border:1px solid var(--border);border-radius:2px;padding:32px;background:#fff;}
+        .compcard.adm{border-top:4px solid #f59e0b;}
+        .compcard.crim{border-top:4px solid #dc2626;}
+        .comprow{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f1f5f9;font-size:14px;}
+        .comprow:last-child{border-bottom:none;}
+        .compk{font-weight:600;min-width:140px;color:var(--muted);font-size:13px;}
+        .qwrap{background:var(--navy);border-radius:2px;padding:48px 40px;}
+        @media(max-width:640px){.qwrap{padding:28px 20px;}}
+        .qinner{background:#fff;border-radius:2px;max-width:860px;margin:0 auto;padding:40px;}
+        @media(max-width:640px){.qinner{padding:24px 20px;}}
+        .lock-sc{text-align:center;padding:60px 20px;}
+        .lock-ic{font-size:56px;margin-bottom:20px;}
+        .lock-t{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:var(--navy);margin-bottom:12px;}
+        .lock-d{font-size:14px;color:var(--muted);max-width:480px;margin:0 auto 28px;line-height:1.7;}
+        .btn-lock{background:#e2e8f0;color:#94a3b8;border:none;padding:14px 28px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;border-radius:2px;cursor:not-allowed;}
+        .btn-unlock{background:var(--blue);color:#fff;border:none;padding:14px 32px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:14px;border-radius:2px;cursor:pointer;}
+        .btn-unlock:hover{background:#1d40b0;}
+        .tbar{display:flex;justify-content:space-between;align-items:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:2px;padding:16px 20px;margin-bottom:32px;}
+        .tlbl{font-size:13px;font-weight:600;color:#92400e;letter-spacing:.05em;text-transform:uppercase;}
+        #tdsp{font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;color:#b45309;}
+        .turge{color:#dc2626!important;animation:pulse 1s infinite;}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .qsec{margin-bottom:40px;padding-bottom:40px;border-bottom:1px solid #f1f5f9;}
+        .qsec:last-of-type{border-bottom:none;}
+        .qtag{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;}
+        .qtitle{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--navy);margin-bottom:24px;}
+        .qblock{margin-bottom:24px;}
+        .qtxt{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:12px;display:flex;gap:10px;}
+        .qnum{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--gold);min-width:20px;padding-top:1px;}
+        .opts{display:flex;flex-direction:column;gap:8px;}
+        .opt{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:2px;cursor:pointer;background:#fafafa;transition:border-color .15s,background .15s;font-size:14px;color:#374151;}
+        .opt:hover{border-color:var(--blue);background:#eff6ff;}
+        .opt input{display:none;}
+        .opt input:checked~.opt-txt{color:var(--blue);font-weight:600;}
+        .opt:has(input:checked){border-color:var(--blue);background:#eff6ff;}
+        .opt-mark{width:16px;height:16px;min-width:16px;border-radius:50%;border:2px solid #d1d5db;transition:all .15s;}
+        .opt:has(input:checked) .opt-mark{background:var(--blue);border-color:var(--blue);}
+        .qprompt{font-size:14px;color:var(--ink);background:#f8fafc;border:1px solid var(--border);border-left:3px solid var(--blue);padding:16px 20px;margin-bottom:16px;line-height:1.7;border-radius:0 2px 2px 0;}
+        .qtarea{width:100%;padding:14px 16px;border:1px solid #d1d5db;border-radius:2px;font-family:'IBM Plex Sans',sans-serif;font-size:14px;color:var(--ink);resize:vertical;outline:none;box-sizing:border-box;}
+        .qtarea:focus{border-color:var(--blue);}
+        .sbtn{width:100%;padding:16px;background:var(--navy);color:#fff;border:none;border-radius:2px;font-family:'IBM Plex Sans',sans-serif;font-weight:700;font-size:15px;cursor:pointer;margin-top:24px;}
+        .sbtn:hover:not(:disabled){background:var(--blue);}
+        .sbtn:disabled{opacity:.6;cursor:not-allowed;}
+        .res-sc{text-align:center;padding:60px 20px;}
+        .res-ic{font-size:64px;margin-bottom:24px;}
+        .res-t{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--navy);margin-bottom:12px;}
+        .res-score{font-family:'IBM Plex Mono',monospace;font-size:56px;font-weight:600;color:var(--blue);display:block;margin:16px 0;}
+        .res-note{font-size:14px;color:var(--muted);max-width:400px;margin:0 auto;}
+        .teach-hdr{background:var(--navy);border-bottom:2px solid var(--gold);padding:24px 32px;display:flex;justify-content:space-between;align-items:center;}
+        .teach-ttl{font-family:'Playfair Display',serif;font-size:24px;color:#fff;}
+        .exit-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 20px;border-radius:2px;cursor:pointer;}
+        .exit-btn:hover{background:rgba(255,255,255,.2);}
+        .teach-body{max-width:1200px;margin:0 auto;padding:32px;}
+        .ttable{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--border);}
+        .ttable th{padding:14px 16px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:#f8fafc;border-bottom:2px solid var(--border);}
+        .trow{border-bottom:1px solid #f1f5f9;}
+        .trow:hover{background:#f8fafc;}
+        .sbadge{display:inline-block;padding:4px 12px;border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}
+        .sg{background:#dcfce7;color:#166534;}
+        .sm{background:#fef3c7;color:#92400e;}
+        .modal-ov{position:fixed;inset:0;background:rgba(15,27,53,.7);z-index:100;display:flex;justify-content:center;align-items:center;padding:16px;}
+        .modal-c{background:#fff;border-top:4px solid var(--gold);border-radius:2px;max-width:400px;width:100%;padding:32px;}
+        .modal-t{font-family:'Playfair Display',serif;font-size:20px;color:var(--navy);margin-bottom:8px;}
+        .modal-s{font-size:13px;color:var(--muted);margin-bottom:20px;}
+        .modal-i{width:100%;padding:12px 16px;border:1px solid #d1d5db;font-family:'IBM Plex Sans',sans-serif;font-size:14px;border-radius:2px;outline:none;margin-bottom:8px;box-sizing:border-box;}
+        .modal-i:focus{border-color:var(--blue);}
+        .modal-a{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;}
+        .modal-cn{background:none;border:1px solid #d1d5db;color:var(--muted);padding:10px 20px;border-radius:2px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;cursor:pointer;}
+        .modal-ok{background:var(--navy);color:#fff;border:none;padding:10px 24px;border-radius:2px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+        .modal-ok:hover{background:var(--blue);}
+        .site-footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.08);padding:24px 32px;text-align:center;}
+        .site-footer p{font-size:12px;color:#475569;}
+        .orn{display:flex;align-items:center;gap:16px;margin:48px 0;}
+        .orn-l{flex:1;height:1px;background:var(--border);}
+        .orn-m{font-size:16px;color:var(--gold);}
+        @media(max-width:640px){.hdr{flex-direction:column;gap:16px;}.hdr-tag{display:none;}.page-main{padding:32px 16px;}}
     </style>
 </head>
 <body>
 
-    <!-- LOGIN OVERLAY -->
-    <div id="login-overlay" class="full-screen-overlay px-4">
-        <div class="login-card">
-            <div class="text-center mb-6">
-                <div class="login-badge">⚖ ПРАВОВИЙ НАВІГАТОР</div>
-                <h1 class="display-font" style="font-size:26px;color:var(--navy);margin-bottom:8px;">Відповідальність неповнолітніх</h1>
-                <p style="font-size:13px;color:var(--muted);">Введіть ваші дані для початку роботи з матеріалом та виконання практичного завдання.</p>
-            </div>
-
-            <div id="login-error" class="hidden" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;padding:10px 14px;font-size:13px;border-radius:2px;margin-bottom:16px;"></div>
-
-            <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px;">
-                <div>
-                    <label class="login-label">Прізвище та Ім'я</label>
-                    <input type="text" id="studentName" placeholder="Шевченко Тарас" class="login-input">
-                </div>
-                <div>
-                    <label class="login-label">Клас</label>
-                    <input type="text" id="studentClass" placeholder="9-А" class="login-input">
-                </div>
-                <button id="start-btn" onclick="startApp()" disabled class="login-btn">Завантаження системи...</button>
-            </div>
-
-            <div style="text-align:center;padding-top:16px;border-top:1px solid #f1f5f9;">
-                <button onclick="showTeacherLogin()" style="background:none;border:none;font-size:12px;color:#94a3b8;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;">Вхід для вчителя 🔒</button>
-            </div>
+<!-- LOGIN -->
+<div id="login-overlay" class="full-overlay">
+    <div class="login-card">
+        <div style="text-align:center;margin-bottom:24px;">
+            <div class="badge">&#9878; ПРАВОВИЙ НАВІГАТОР</div>
+            <h1 style="font-family:'Playfair Display',serif;font-size:26px;color:var(--navy);margin-bottom:8px;">Відповідальність неповнолітніх</h1>
+            <p style="font-size:13px;color:var(--muted);">Введіть ваші дані для початку роботи з матеріалом та виконання практичного завдання.</p>
+        </div>
+        <div id="login-error" class="hidden" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;padding:10px 14px;font-size:13px;border-radius:2px;margin-bottom:16px;"></div>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:24px;">
+            <div><label class="lbl">Прізвище та Ім'я</label><input type="text" id="studentName" placeholder="Шевченко Тарас" class="inp"></div>
+            <div><label class="lbl">Клас</label><input type="text" id="studentClass" placeholder="9-А" class="inp"></div>
+            <button onclick="startApp()" class="btn-main">Розпочати роботу &#8594;</button>
+        </div>
+        <div style="text-align:center;padding-top:16px;border-top:1px solid #f1f5f9;">
+            <button onclick="showTeacherLogin()" style="background:none;border:none;font-size:12px;color:#94a3b8;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;">Вхід для вчителя &#128274;</button>
         </div>
     </div>
+</div>
 
-    <!-- TEACHER LOGIN MODAL -->
-    <div id="teacher-login-modal" class="hidden modal-overlay">
-        <div class="modal-card">
-            <h3 class="modal-title">Доступ вчителя</h3>
-            <p class="modal-sub">Введіть пароль для перегляду результатів учнів.</p>
-            <input type="password" id="teacher-password" class="modal-input" placeholder="Пароль">
-            <p id="teacher-error" class="hidden" style="font-size:12px;color:#dc2626;margin-bottom:12px;">Невірний пароль</p>
-            <div class="modal-actions">
-                <button onclick="closeTeacherLogin()" class="modal-cancel">Скасувати</button>
-                <button onclick="loginTeacher()" class="modal-submit">Увійти →</button>
-            </div>
+<!-- TEACHER MODAL -->
+<div id="teacher-login-modal" class="hidden modal-ov">
+    <div class="modal-c">
+        <h3 class="modal-t">Доступ вчителя</h3>
+        <p class="modal-s">Введіть пароль для перегляду результатів учнів.</p>
+        <input type="password" id="teacher-password" class="modal-i" placeholder="Пароль">
+        <p id="teacher-error" class="hidden" style="font-size:12px;color:#dc2626;margin-bottom:8px;">Невірний пароль</p>
+        <div class="modal-a">
+            <button onclick="closeTeacherLogin()" class="modal-cn">Скасувати</button>
+            <button onclick="loginTeacher()" class="modal-ok">Увійти &#8594;</button>
         </div>
     </div>
+</div>
 
-    <!-- TEACHER DASHBOARD -->
-    <div id="teacher-dashboard" class="hidden teacher-wrap">
-        <div class="teacher-header">
+<!-- TEACHER DASHBOARD -->
+<div id="teacher-dashboard" class="hidden" style="background:var(--cream);min-height:100vh;">
+    <div class="teach-hdr">
+        <div>
+            <div style="font-size:11px;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;">ПАНЕЛЬ УПРАВЛІННЯ</div>
+            <h1 class="teach-ttl">Результати учнів</h1>
+        </div>
+        <button onclick="exitTeacherMode()" class="exit-btn">&#8592; Вийти</button>
+    </div>
+    <div class="teach-body">
+        <table class="ttable">
+            <thead><tr><th>#</th><th>Учень</th><th>Клас</th><th>Дата / Час</th><th>Тести (авто)</th><th>Творче завдання</th><th>Дія</th></tr></thead>
+            <tbody id="teacher-table-body"><tr><td colspan="7" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження даних...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div id="main-content" class="hidden">
+    <header class="site-header">
+        <div class="hdr">
             <div>
-                <div style="font-size:11px;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">ПАНЕЛЬ УПРАВЛІННЯ</div>
-                <h1 class="teacher-title">Результати учнів</h1>
+                <div class="hdr-eye">Основи правознавства · 9 клас</div>
+                <h1 class="hdr-title">Правовий Навігатор 9.0</h1>
+                <p class="hdr-sub">Адміністративна та кримінальна відповідальність неповнолітніх</p>
             </div>
-            <button onclick="exitTeacherMode()" class="exit-btn">← Вийти</button>
+            <div class="hdr-tag">База знань: підручник О. Наровлянського</div>
         </div>
-        <div class="teacher-body">
-            <table class="teacher-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Учень</th>
-                        <th>Клас</th>
-                        <th>Дата / Час</th>
-                        <th>Тести (авто)</th>
-                        <th>Творче завдання</th>
-                        <th>Дія</th>
-                    </tr>
-                </thead>
-                <tbody id="teacher-table-body">
-                    <tr><td colspan="7" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження даних...</td></tr>
-                </tbody>
-            </table>
+    </header>
+    <main class="page-main">
+        <!-- INSTR -->
+        <div class="instr sg">
+            <h2>Інструкція до роботи</h2>
+            <p>Ознайомтесь із теорією за допомогою інтерактивних матеріалів нижче. Коли будете готові — перейдіть до <strong>Комплексної практичної роботи</strong>. Завдання генерується індивідуально, перездати неможливо.</p>
         </div>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div id="main-content" class="hidden">
-        <header class="site-header">
-            <div class="header-inner">
-                <div>
-                    <div class="header-eyebrow">Основи правознавства · 9 клас</div>
-                    <h1 class="header-title">Правовий Навігатор 9.0</h1>
-                    <p class="header-sub">Адміністративна та кримінальна відповідальність неповнолітніх</p>
+        <!-- SLIDER -->
+        <section class="sg">
+            <div class="sh"><span class="sn">01</span><h2 class="st">Віковий симулятор відповідальності</h2></div>
+            <div class="sim-panel">
+                <p style="font-size:14px;color:var(--muted);margin-bottom:28px;">Рухайте повзунок, щоб дізнатись, як змінюється юридичний статус підлітка з кожним роком.</p>
+                <input type="range" id="ageSlider" min="10" max="18" value="14" class="slider">
+                <div class="slbl"><span>10</span><span>12</span><span>14</span><span>16</span><span>18 років</span></div>
+                <div class="age-row"><span class="age-num" id="currentAgeDisplay">14</span><span style="font-size:18px;color:var(--muted);font-weight:300;">років</span></div>
+                <div id="sbar"></div><div id="slbl"></div>
+                <div class="icards">
+                    <div class="icard"><div class="icard-lbl">&#128721; Кримінальна відповідальність</div><div class="icard-body" id="crimSt"></div></div>
+                    <div class="icard"><div class="icard-lbl">&#128203; Адміністративна відповідальність</div><div class="icard-body" id="admSt"></div></div>
                 </div>
-                <div class="header-tag">База знань: підручник О. Наровлянського</div>
             </div>
-        </header>
-
-        <main class="page-main">
-
-            <!-- INSTRUCTION -->
-            <div class="instruction-box section-gap">
-                <h2>Інструкція до роботи</h2>
-                <p>Ознайомтесь із теорією за допомогою інтерактивних матеріалів нижче. Коли будете готові — перейдіть до <strong>Комплексної практичної роботи</strong>. Завдання генерується індивідуально, перездати його неможливо.</p>
+        </section>
+        <div class="orn"><div class="orn-l"></div><div class="orn-m">§</div><div class="orn-l"></div></div>
+        <!-- CHARTS -->
+        <section class="sg">
+            <div class="sh"><span class="sn">02</span><h2 class="st">Правова статистика</h2></div>
+            <div class="cgrid">
+                <div class="ccard"><div class="ccard-t">Типові злочини неповнолітніх</div><div class="ccard-s">Розподіл за видами кримінальних правопорушень</div><div class="cch"><canvas id="offensesChart"></canvas></div></div>
+                <div class="ccard"><div class="ccard-t">Максимальний термін покарання</div><div class="ccard-s">Позбавлення волі: дорослі проти неповнолітніх (ККУ)</div><div class="cch"><canvas id="punishmentChart"></canvas></div></div>
             </div>
-
-            <!-- AGE SIMULATOR -->
-            <section class="section-gap">
-                <div class="sec-header">
-                    <span class="sec-num">01</span>
-                    <h2 class="sec-title">Віковий симулятор відповідальності</h2>
+        </section>
+        <div class="orn"><div class="orn-l"></div><div class="orn-m">§</div><div class="orn-l"></div></div>
+        <!-- COMPARE -->
+        <section class="sg">
+            <div class="sh"><span class="sn">03</span><h2 class="st">Проступок чи злочин?</h2></div>
+            <div class="compgrid">
+                <div class="compcard adm">
+                    <div style="font-size:36px;margin-bottom:12px;">&#128221;</div>
+                    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#92400e;margin-bottom:20px;">Адміністративний проступок</div>
+                    <div class="comprow"><span class="compk">Кодекс</span><span>КУпАП</span></div>
+                    <div class="comprow"><span class="compk">Небезпека</span><span>Невисока</span></div>
+                    <div class="comprow"><span class="compk">Вік відповідальності</span><span>16 років (до 16 — батьки)</span></div>
+                    <div class="comprow"><span class="compk">Заходи</span><span>Попередження, догана</span></div>
+                    <div class="comprow"><span class="compk">Приклади</span><span>Куріння, дрібне хуліганство, безквитковий проїзд</span></div>
                 </div>
-                <div class="simulator-panel">
-                    <p style="font-size:14px;color:var(--muted);margin-bottom:28px;">Рухайте повзунок, щоб дізнатись, як змінюється юридичний статус підлітка з кожним роком.</p>
-
-                    <input type="range" id="ageSlider" min="10" max="18" value="14" class="slider-styled">
-                    <div class="slider-labels">
-                        <span>10</span><span>12</span><span>14</span><span>16</span><span>18 років</span>
-                    </div>
-
-                    <div class="age-display-row">
-                        <span class="age-number" id="currentAgeDisplay">14</span>
-                        <span class="age-label">років</span>
-                    </div>
-
-                    <div id="status-bar"></div>
-                    <div id="status-label" style="text-align:center;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;"></div>
-
-                    <div class="info-cards">
-                        <div class="info-card">
-                            <div class="info-card-label">🛑 Кримінальна відповідальність</div>
-                            <div class="info-card-body" id="criminalStatus"></div>
+                <div class="compcard crim">
+                    <div style="font-size:36px;margin-bottom:12px;">&#128660;</div>
+                    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:#991b1b;margin-bottom:20px;">Кримінальний злочин</div>
+                    <div class="comprow"><span class="compk">Кодекс</span><span>ККУ</span></div>
+                    <div class="comprow"><span class="compk">Небезпека</span><span>Висока</span></div>
+                    <div class="comprow"><span class="compk">Вік відповідальності</span><span>16 років; за тяжкі — з 14 років</span></div>
+                    <div class="comprow"><span class="compk">Покарання</span><span>Штраф, громадські роботи, арешт, позбавлення волі</span></div>
+                    <div class="comprow"><span class="compk">Приклади</span><span>Крадіжка, грабіж, вбивство, мінування</span></div>
+                </div>
+            </div>
+        </section>
+        <div class="orn"><div class="orn-l"></div><div class="orn-m">§</div><div class="orn-l"></div></div>
+        <!-- QUIZ -->
+        <section>
+            <div class="sh"><span class="sn">04</span><h2 class="st">Комплексна практична робота</h2></div>
+            <div class="qwrap">
+                <div style="margin-bottom:24px;">
+                    <div style="font-size:11px;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;">Індивідуальний варіант</div>
+                    <p style="font-size:13px;color:#94a3b8;">Варіант згенеровано індивідуально. Після відправлення змінити відповіді неможливо.</p>
+                </div>
+                <div class="qinner">
+                    <div id="simulator-form">
+                        <div id="quiz-lock-screen" class="lock-sc">
+                            <div class="lock-ic">&#128274;</div>
+                            <h3 class="lock-t">Практична робота заблокована</h3>
+                            <p class="lock-d">Для отримання доступу необхідно спочатку опрацювати теоретичний матеріал. Скористайтеся <strong>Віковим симулятором</strong> вище — порухайте повзунок.</p>
+                            <button id="unlock-quiz-btn" onclick="unlockQuiz()" class="btn-lock" disabled>Опрацюйте матеріал для розблокування</button>
                         </div>
-                        <div class="info-card">
-                            <div class="info-card-label">📋 Адміністративна відповідальність</div>
-                            <div class="info-card-body" id="adminStatus"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="ornament"><div class="ornament-line"></div><div class="ornament-mark">§</div><div class="ornament-line"></div></div>
-
-            <!-- CHARTS -->
-            <section class="section-gap">
-                <div class="sec-header">
-                    <span class="sec-num">02</span>
-                    <h2 class="sec-title">Правова статистика</h2>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <div class="chart-card-title">Типові злочини неповнолітніх</div>
-                        <div class="chart-card-sub">Розподіл за видами кримінальних правопорушень</div>
-                        <div class="chart-container"><canvas id="offensesChart"></canvas></div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-card-title">Максимальний термін покарання</div>
-                        <div class="chart-card-sub">Позбавлення волі: дорослі проти неповнолітніх (ККУ)</div>
-                        <div class="chart-container"><canvas id="punishmentChart"></canvas></div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="ornament"><div class="ornament-line"></div><div class="ornament-mark">§</div><div class="ornament-line"></div></div>
-
-            <!-- COMPARISON -->
-            <section class="section-gap">
-                <div class="sec-header">
-                    <span class="sec-num">03</span>
-                    <h2 class="sec-title">Проступок чи злочин?</h2>
-                </div>
-                <div class="compare-grid">
-                    <div class="compare-card admin">
-                        <div class="compare-icon">📝</div>
-                        <div class="compare-title" style="color:#92400e;">Адміністративний проступок</div>
-                        <div class="compare-row"><span class="compare-key">Кодекс</span><span class="compare-val">КУпАП</span></div>
-                        <div class="compare-row"><span class="compare-key">Небезпека</span><span class="compare-val">Невисока</span></div>
-                        <div class="compare-row"><span class="compare-key">Вік відповідальності</span><span class="compare-val">16 років (до 16 — батьки)</span></div>
-                        <div class="compare-row"><span class="compare-key">Заходи (до неповнол.)</span><span class="compare-val">Попередження, догана</span></div>
-                        <div class="compare-row"><span class="compare-key">Приклади</span><span class="compare-val">Куріння, дрібне хуліганство, безквитковий проїзд</span></div>
-                    </div>
-                    <div class="compare-card criminal">
-                        <div class="compare-icon">🚔</div>
-                        <div class="compare-title" style="color:#991b1b;">Кримінальний злочин</div>
-                        <div class="compare-row"><span class="compare-key">Кодекс</span><span class="compare-val">ККУ</span></div>
-                        <div class="compare-row"><span class="compare-key">Небезпека</span><span class="compare-val">Висока</span></div>
-                        <div class="compare-row"><span class="compare-key">Вік відповідальності</span><span class="compare-val">16 років; за тяжкі — з 14 років</span></div>
-                        <div class="compare-row"><span class="compare-key">Покарання</span><span class="compare-val">Штраф, громадські роботи, арешт, позбавлення волі</span></div>
-                        <div class="compare-row"><span class="compare-key">Приклади</span><span class="compare-val">Крадіжка, грабіж, вбивство, мінування</span></div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="ornament"><div class="ornament-line"></div><div class="ornament-mark">§</div><div class="ornament-line"></div></div>
-
-            <!-- QUIZ -->
-            <section>
-                <div class="sec-header">
-                    <span class="sec-num">04</span>
-                    <h2 class="sec-title">Комплексна практична робота</h2>
-                </div>
-
-                <div class="quiz-wrapper">
-                    <div style="margin-bottom:24px;">
-                        <div style="font-size:11px;color:var(--gold);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;">Індивідуальний варіант</div>
-                        <p style="font-size:13px;color:#94a3b8;">Варіант згенеровано індивідуально. Після відправлення змінити відповіді неможливо.</p>
-                    </div>
-
-                    <div class="quiz-inner">
-                        <div id="simulator-form">
-                            <!-- LOCK SCREEN -->
-                            <div id="quiz-lock-screen" class="lock-screen">
-                                <div class="lock-icon">🔒</div>
-                                <h3 class="lock-title">Практична робота заблокована</h3>
-                                <p class="lock-desc">Для отримання доступу до завдання необхідно спочатку опрацювати теоретичний матеріал. Скористайтеся <strong>Віковим симулятором</strong> вище — порухайте повзунок.</p>
-                                <button id="unlock-quiz-btn" onclick="unlockQuiz()" class="btn-locked" disabled>
-                                    Опрацюйте матеріал для розблокування
-                                </button>
-                            </div>
-
-                            <!-- ACTIVE QUIZ -->
-                            <div id="quiz-active-screen" class="hidden">
-                                <div class="timer-bar">
-                                    <span class="timer-label">⏳ Залишилось часу</span>
-                                    <span id="timer-display">25:00</span>
-                                </div>
-                                <div id="dynamic-quiz">
-                                    <div style="text-align:center;padding:40px;color:#94a3b8;">Генерація завдань...</div>
-                                </div>
-                                <div style="margin-top:16px;padding-top:24px;border-top:1px solid #f1f5f9;text-align:center;">
-                                    <p style="font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:0;">Перевірте відповіді перед відправленням</p>
-                                    <button id="submit-btn" onclick="submitQuiz()" class="submit-btn">
-                                        Завершити роботу та відправити →
-                                    </button>
-                                </div>
+                        <div id="quiz-active-screen" class="hidden">
+                            <div class="tbar"><span class="tlbl">&#9203; Залишилось часу</span><span id="tdsp">25:00</span></div>
+                            <div id="dynamic-quiz"></div>
+                            <div style="margin-top:16px;padding-top:24px;border-top:1px solid #f1f5f9;text-align:center;">
+                                <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#94a3b8;margin-bottom:0;">Перевірте відповіді перед відправленням</p>
+                                <button id="submit-btn" onclick="submitQuiz(false)" class="sbtn">Завершити роботу та відправити &#8594;</button>
                             </div>
                         </div>
-
-                        <!-- RESULT -->
-                        <div id="simulator-result" class="hidden result-screen">
-                            <div class="result-icon">✅</div>
-                            <h3 class="result-title">Роботу успішно збережено</h3>
-                            <p style="font-size:14px;color:var(--muted);margin-bottom:8px;">Ваш результат за тестову частину (Частини 1–3, 8 питань):</p>
-                            <span class="result-score" id="final-score-display">0 / 8</span>
-                            <p class="result-note">Остаточну оцінку виставить вчитель після перевірки розгорнутої відповіді (Частина 4).</p>
-                        </div>
+                    </div>
+                    <div id="simulator-result" class="hidden res-sc">
+                        <div class="res-ic">&#9989;</div>
+                        <h3 class="res-t">Роботу успішно збережено</h3>
+                        <p style="font-size:14px;color:var(--muted);margin-bottom:8px;">Ваш результат за тестову частину (Частини 1-3, 8 питань):</p>
+                        <span class="res-score" id="final-score-display">0 / 8</span>
+                        <p class="res-note">Остаточну оцінку виставить вчитель після перевірки розгорнутої відповіді (Частина 4).</p>
                     </div>
                 </div>
-            </section>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer"><p>Розроблено як інтерактивний додаток до курсу «Основи правознавства» · 9 клас</p></footer>
+</div>
 
-        </main>
+<script>
+// ===== FIREBASE =====
+firebase.initializeApp({
+    apiKey: "AIzaSyDWJcqUyv_a0VgU74QWj3vs2_RcdOgrfJ8",
+    authDomain: "expert9navigator.firebaseapp.com",
+    projectId: "expert9navigator",
+    storageBucket: "expert9navigator.firebasestorage.app",
+    messagingSenderId: "119347627510",
+    appId: "1:119347627510:web:58a9e5e674e121455a33d7"
+});
+var db = firebase.firestore();
+var auth = firebase.auth();
+var AID = 'law-guide-9';
+var currentUser = null;
+var studentData = {};
+var generatedQuiz = null;
+var sliderUsed = false;
+var timerInt = null;
+var timeLeft = 1500;
+var unsub = null;
 
-        <footer class="site-footer">
-            <p>Розроблено як інтерактивний додаток до курсу «Основи правознавства» · 9 клас</p>
-        </footer>
-    </div>
+auth.signInAnonymously().catch(function(e){ console.warn('auth',e); });
+auth.onAuthStateChanged(function(u){ if(u) currentUser = u; });
 
+// ===== POOLS =====
+var pools = {
+    p1:[
+        {q:"Знайди зайве (не є адміністративним заходом впливу щодо неповнолітніх):",o:["Попередження","Догана","Позбавлення волі","Передача під нагляд батьків"],c:2},
+        {q:"Знайди зайве (не є кримінальним покаранням за ККУ):",o:["Штраф","Громадські роботи","Позбавлення волі","Догана"],c:3},
+        {q:"Знайди зайве (злочин, за який відповідальність настає з 16, а не з 14 років):",o:["Вбивство","Грабіж","Безквитковий проїзд","Крадіжка"],c:2},
+        {q:"Знайди зайве (не є принципом кримінальної відповідальності неповнолітніх):",o:["Пом'якшення покарання","Виховний вплив","Довічне ув'язнення","Можливість звільнення від покарання"],c:2},
+        {q:"Знайди зайве (не відноситься до адміністративних правопорушень):",o:["Куріння в громадських місцях","Дрібне хуліганство","Розбій","Безквитковий проїзд"],c:2}
+    ],
+    p2:[
+        {q:"«11-річний Микола вкрав велосипед, тому він відбуватиме покарання у виховній колонії». У чому помилка?",o:["Велосипеди не крадуть","Кримінальна відповідальність за крадіжку настає з 14 років, а не з 11","Його оштрафують на 1000 грн"],c:1},
+        {q:"«За розпивання алкоголю у парку 14-річного учня обов'язково посадять у в'язницю». У чому помилка?",o:["За це передбачена адміністративна відповідальність (до 16 років відповідають батьки)","Його просто відпустять","Алкоголь можна пити з 14 років"],c:0},
+        {q:"«Якщо 15-річний підліток повідомив про мінування школи — це адміністративний проступок». У чому помилка?",o:["Це дозволено як жарт","Мінування штрафується лише на 50 грн","Це кримінальний злочин (ст. 259 ККУ), відповідальність з 14 років"],c:2},
+        {q:"«17-річного юнака засудили до довічного ув'язнення за тяжкий злочин». У чому помилка?",o:["Довічне ув'язнення не застосовується до осіб, які вчинили злочин до 18 років","Довічне дають з 16 років","Він має відбувати покарання вдома"],c:0},
+        {q:"«13-річний підліток образив вчителя словесно — це кримінальний злочин». У чому помилка?",o:["Образа є адміністративним проступком, кримінальна відповідальність настає з 16 років","Словесна образа взагалі не є правопорушенням","За це садять лише з 18 років"],c:0},
+        {q:"«16-річний учень самостійно сплатив штраф за куріння в школі». У чому помилка?",o:["Штраф за куріння не передбачений","До 18 років штрафи платять лише батьки","Адміністративний штраф неповнолітній може сплатити лише якщо має власний заробіток"],c:2}
+    ],
+    p3:[
+        {q:"15-річний Сергій та 17-річний Андрій відібрали у перехожого телефон, погрожуючи ножем. Який це вид правопорушення і хто несе відповідальність?",o:["Адміністративне, відповідатиме лише Андрій","Кримінальне (розбій), відповідатимуть обоє (відповідальність з 14 років)","Кримінальне, відповідатиме лише Андрій"],c:1},
+        {q:"14-річна дівчина розмалювала маркером сидіння в автобусі. Її затримали. Хто буде нести відповідальність?",o:["Сама дівчина (кримінальна відповідальність)","Ніхто, це просто малюнок","Батьки дівчини (за невиконання обов'язків щодо виховання, адмін. проступок)"],c:2},
+        {q:"16-річний юнак їхав у тролейбусі без квитка і відмовився платити штраф контролеру. Хто нестиме юридичну відповідальність?",o:["Батьки юнака","Сам юнак (адміністративна відповідальність настає з 16 років)","Школа, в якій він навчається"],c:1},
+        {q:"13-річний підліток вкрав з магазину шоколадку. Які юридичні наслідки?",o:["Його посадять у в'язницю","Він не досяг віку кримінальної відповідальності (14 р.), шкоду відшкодують батьки","Він заплатить адміністративний штраф"],c:1},
+        {q:"15-річний підліток вночі зламав замок і проник до чужого гаражу. Яка відповідальність настане?",o:["Адміністративна, бо він неповнолітній","Кримінальна (незаконне проникнення + крадіжка), відповідальність з 14 років","Жодної, він ще школяр"],c:1},
+        {q:"17-річна учениця поширила в соцмережах персональні дані однокласника без його згоди. Яка відповідальність?",o:["Кримінальна відповідальність з 14 років за розголошення таємниці","Адміністративна відповідальність (повна, з 16 років)","Жодної, соцмережі — не публічне місце"],c:1}
+    ],
+    p4:[
+        "Уяви, що ти — соціальний працівник. Напиши коротку пораду (2-3 речення) підлітку, який вважає, що до 18 років можна робити що завгодно, і йому нічого не буде.",
+        "Твій друг (14 років) хоче заради жарту подзвонити в поліцію і сказати, що вокзал заміновано. Як ти з юридичної точки зору відмовиш його від цього?",
+        "Поясни молодшому брату простими словами, у чому головна різниця між адміністративним проступком і кримінальним злочином.",
+        "Склади короткий правовий пам'ятник для учнів 9 класу: 3 речення про те, чому незнання закону не звільняє від відповідальності.",
+        "Уяви ситуацію: твій 15-річний друг випадково пошкодив чужий автомобіль. Опиши юридичні наслідки та хто і як має відшкодувати збитки.",
+        "Як би ти пояснив різницю між кримінальною та адміністративною відповідальністю на одному конкретному прикладі з реального шкільного життя?"
+    ]
+};
+
+// ===== HELPERS =====
+function shuf(a){ return a.slice().sort(function(){return .5-Math.random();}); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function toast(m){
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:4px;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);';
+    t.textContent=m; document.body.appendChild(t); setTimeout(function(){t.remove();},3500);
+}
+
+// ===== LOGIN =====
+function startApp(){
+    var name=document.getElementById('studentName').value.trim();
+    var cls=document.getElementById('studentClass').value.trim();
+    var err=document.getElementById('login-error');
+    if(!name||!cls){err.textContent='Будь ласка, введіть ПІБ та клас.';err.classList.remove('hidden');return;}
+    if(name.length<5){err.textContent="Введіть повне прізвище та ім'я.";err.classList.remove('hidden');return;}
+    studentData={name:name,className:cls};
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('main-content').classList.remove('hidden');
+    setTimeout(initCharts,100);
+    checkStatus();
+}
+
+function checkStatus(){
+    if(!currentUser){genQuiz();return;}
+    db.collection('artifacts').doc(AID).collection('public').doc('data').collection('students_results').doc(currentUser.uid).get()
+        .then(function(s){if(s.exists){showDone(s.data().scoreAuto);}else{genQuiz();}})
+        .catch(function(){genQuiz();});
+}
+
+// ===== QUIZ =====
+function genQuiz(){
+    generatedQuiz={p1:shuf(pools.p1).slice(0,2),p2:shuf(pools.p2).slice(0,3),p3:shuf(pools.p3).slice(0,3),p4:shuf(pools.p4).slice(0,2)};
+    renderQuiz();
+}
+
+function renderQuiz(){
+    var h='',qi=0;
+    h+=qsec('01','Експерт-теоретик',generatedQuiz.p1,qi); qi+=generatedQuiz.p1.length;
+    h+=qsec('02','Юридичний детектив',generatedQuiz.p2,qi); qi+=generatedQuiz.p2.length;
+    h+=qsec('03','Правовий консиліум',generatedQuiz.p3,qi);
+    h+='<div class="qsec"><div class="qtag">Частина 04</div><h3 class="qtitle">Соціальний прогноз <span style="font-size:.75rem;font-weight:400;opacity:.6;">(Творчі завдання)</span></h3>';
+    generatedQuiz.p4.forEach(function(p,i){
+        h+='<div class="qblock"><p class="qtxt"><span class="qnum">Т'+(i+1)+'</span>'+p+'</p><textarea id="ca'+i+'" rows="4" class="qtarea" placeholder="Напишіть вашу відповідь тут..."></textarea></div>';
+    });
+    h+='</div>';
+    document.getElementById('dynamic-quiz').innerHTML=h;
+}
+
+function qsec(num,title,qs,startIdx){
+    var h='<div class="qsec"><div class="qtag">Частина '+num+'</div><h3 class="qtitle">'+title+'</h3>';
+    qs.forEach(function(q,i){
+        h+='<div class="qblock"><p class="qtxt"><span class="qnum">'+(startIdx+i+1)+'</span>'+q.q+'</p><div class="opts">';
+        q.o.forEach(function(opt,oi){
+            h+='<label class="opt"><input type="radio" name="q'+(startIdx+i)+'" value="'+oi+'"><span class="opt-mark"></span><span class="opt-txt">'+opt+'</span></label>';
+        });
+        h+='</div></div>';
+    });
+    return h+'</div>';
+}
+
+function submitQuiz(isAuto){
+    if(!generatedQuiz) return;
+    var score=0,qi=0;
+    var allQ=generatedQuiz.p1.concat(generatedQuiz.p2).concat(generatedQuiz.p3);
+    allQ.forEach(function(q){
+        var a=document.querySelector('input[name="q'+qi+'"]:checked');
+        if(a && parseInt(a.value)===q.c) score++;
+        qi++;
+    });
+    var texts=generatedQuiz.p4.map(function(_,i){var el=document.getElementById('ca'+i);return el?el.value.trim():'';});
+    if(!isAuto && texts.some(function(t){return t.length<10;})){alert('Будь ласка, дайте розгорнуту відповідь на обидва творчі завдання.');return;}
+    if(timerInt) clearInterval(timerInt);
+    var btn=document.getElementById('submit-btn');
+    if(btn){btn.disabled=true;btn.textContent='Відправлення...';}
+    var data={studentName:studentData.name,className:studentData.className,scoreAuto:score,totalAuto:8,creativePrompt:generatedQuiz.p4.join(' | '),creativeAnswer:texts.join('\n\n--- Завдання 2 ---\n\n'),timestamp:new Date().toISOString()};
+    if(currentUser){
+        db.collection('artifacts').doc(AID).collection('public').doc('data').collection('students_results').doc(currentUser.uid).set(data).catch(function(e){console.warn('save',e);});
+    }
+    showDone(score);
+}
+
+function showDone(score){
+    document.getElementById('simulator-form').classList.add('hidden');
+    document.getElementById('simulator-result').classList.remove('hidden');
+    document.getElementById('final-score-display').textContent=score+' / 8';
+}
+
+function unlockQuiz(){
+    if(!sliderUsed) return;
+    document.getElementById('quiz-lock-screen').classList.add('hidden');
+    document.getElementById('quiz-active-screen').classList.remove('hidden');
+    document.getElementById('quiz-active-screen').scrollIntoView({behavior:'smooth',block:'start'});
+    var d=document.getElementById('tdsp');
+    timerInt=setInterval(function(){
+        timeLeft--;
+        d.textContent=String(Math.floor(timeLeft/60)).padStart(2,'0')+':'+String(timeLeft%60).padStart(2,'0');
+        if(timeLeft<=60) d.classList.add('turge');
+        if(timeLeft<=0){clearInterval(timerInt);alert('Час вичерпано! Роботу буде відправлено.');submitQuiz(true);}
+    },1000);
+}
+
+// ===== TEACHER =====
+function showTeacherLogin(){ document.getElementById('teacher-login-modal').classList.remove('hidden'); }
+function closeTeacherLogin(){
+    document.getElementById('teacher-login-modal').classList.add('hidden');
+    document.getElementById('teacher-password').value='';
+    document.getElementById('teacher-error').classList.add('hidden');
+}
+function loginTeacher(){
+    if(document.getElementById('teacher-password').value==='TechDev999'){
+        closeTeacherLogin();
+        document.getElementById('login-overlay').classList.add('hidden');
+        document.getElementById('main-content').classList.add('hidden');
+        document.getElementById('teacher-dashboard').classList.remove('hidden');
+        loadTeacherData();
+    } else { document.getElementById('teacher-error').classList.remove('hidden'); }
+}
+function loadTeacherData(){
+    var tbody=document.getElementById('teacher-table-body');
+    unsub=db.collection('artifacts').doc(AID).collection('public').doc('data').collection('students_results').onSnapshot(function(snap){
+        tbody.innerHTML='';
+        if(snap.empty){tbody.innerHTML='<tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Ще немає результатів.</td></tr>';return;}
+        var rows=[];
+        snap.forEach(function(d){rows.push(Object.assign({id:d.id},d.data()));});
+        rows.sort(function(a,b){return new Date(b.timestamp)-new Date(a.timestamp);});
+        rows.forEach(function(d,i){
+            var dt=new Date(d.timestamp).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            var tr=document.createElement('tr'); tr.className='trow';
+            tr.innerHTML='<td class="p-4 text-sm" style="color:#94a3b8;font-family:monospace;">'+String(i+1).padStart(2,'0')+'</td>'
+                +'<td class="p-4 text-sm font-bold" style="color:#1e293b;">'+esc(d.studentName)+'</td>'
+                +'<td class="p-4 text-sm" style="color:#475569;">'+esc(d.className)+'</td>'
+                +'<td class="p-4 text-sm" style="color:#64748b;font-family:monospace;">'+dt+'</td>'
+                +'<td class="p-4"><span class="sbadge '+(d.scoreAuto>=6?'sg':'sm')+'">'+d.scoreAuto+' / 8</span></td>'
+                +'<td class="p-4 text-sm"><details><summary style="cursor:pointer;font-weight:600;color:#2563eb;">&#9658; Показати</summary>'
+                +'<div style="margin-top:8px;padding:12px;background:#f8fafc;border-radius:4px;font-size:12px;">'
+                +'<p style="color:#94a3b8;font-style:italic;margin-bottom:4px;">'+esc(d.creativePrompt)+'</p>'
+                +'<p>'+esc(d.creativeAnswer)+'</p></div></details></td>'
+                +'<td class="p-4"><button onclick="resetResult(\''+d.id+'\',\''+esc(d.studentName)+'\')" style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;">Скинути</button></td>';
+            tbody.appendChild(tr);
+        });
+    });
+}
+function resetResult(id,name){
+    if(!confirm('Видалити роботу учня "'+name+'"? Він зможе здати її знову.')) return;
+    db.collection('artifacts').doc(AID).collection('public').doc('data').collection('students_results').doc(id).delete()
+        .then(function(){toast('Роботу "'+name+'" видалено.');})
+        .catch(function(){toast('Помилка при видаленні.');});
+}
+function exitTeacherMode(){
+    if(unsub) unsub();
+    document.getElementById('teacher-dashboard').classList.add('hidden');
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('teacher-password').value='';
+    document.getElementById('teacher-error').classList.add('hidden');
+}
+
+// ===== AGE SLIDER =====
+var ageData={
+    10:{c:"Не несе кримінальної відповідальності.",a:"Не несе адміністративної відповідальності.",l:0},
+    11:{c:"Не несе кримінальної відповідальності. Можливі примусові заходи виховного характеру.",a:"Не несе адміністративної відповідальності.",l:0},
+    12:{c:"Не несе кримінальної відповідальності. Можливе поміщення до спеціальної школи.",a:"Не несе адміністративної відповідальності.",l:0},
+    13:{c:"Не несе кримінальної відповідальності (останній рік повної непідсудності).",a:"Не несе адміністративної відповідальності. Відповідають батьки.",l:0},
+    14:{c:"Відповідальність за тяжкі та особливо тяжкі злочини (вбивство, крадіжка, грабіж).",a:"Не несе адміністративної відповідальності. Відповідають батьки.",l:1},
+    15:{c:"Відповідальність за тяжкі злочини продовжує діяти.",a:"Не несе адміністративної відповідальності. Відповідають батьки.",l:1},
+    16:{c:"ПОВНА кримінальна відповідальність за всі види злочинів.",a:"Адміністративна відповідальність. Заходи: попередження, догана.",l:2},
+    17:{c:"Повна кримінальна відповідальність.",a:"Адміністративна відповідальність. Можливий штраф за наявності заробітку.",l:2},
+    18:{c:"Відповідальність як ДОРОСЛОЇ особи. Жодних поблажок.",a:"Повна адміністративна відповідальність на загальних підставах.",l:2}
+};
+function updAge(age){
+    var d=ageData[age],cols=['#2563eb','#d97706','#dc2626'],lbls=['Безпечна зона','Часткова відповідальність','Повна відповідальність'];
+    document.getElementById('currentAgeDisplay').textContent=age;
+    document.getElementById('currentAgeDisplay').style.color=cols[d.l];
+    document.getElementById('crimSt').textContent=d.c;
+    document.getElementById('admSt').textContent=d.a;
+    document.getElementById('sbar').style.background='linear-gradient(90deg,'+cols[d.l]+' '+((age-10)/8*100)+'%,#e2e8f0 '+((age-10)/8*100)+'%)';
+    document.getElementById('slbl').textContent=lbls[d.l];
+    document.getElementById('slbl').style.color=cols[d.l];
+}
+document.getElementById('ageSlider').addEventListener('input',function(){
+    updAge(parseInt(this.value));
+    if(!sliderUsed){
+        sliderUsed=true;
+        var btn=document.getElementById('unlock-quiz-btn');
+        btn.disabled=false;
+        btn.className='btn-unlock';
+        btn.textContent='Розпочати практичну роботу (25 хвилин) \u2192';
+    }
+});
+updAge(14);
+
+// ===== CHARTS =====
+function initCharts(){
+    var opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'IBM Plex Sans',size:12},color:'#475569',padding:16,usePointStyle:true}}}};
+    new Chart(document.getElementById('offensesChart').getContext('2d'),{type:'doughnut',data:{labels:['Майнові (Крадіжки)','Хуліганство','Наркотичні','Інші'],datasets:[{data:[55,25,10,10],backgroundColor:['#1e40af','#f59e0b','#ef4444','#cbd5e1'],borderWidth:3,borderColor:'#fff'}]},options:Object.assign({},opts,{cutout:'65%'})});
+    new Chart(document.getElementById('punishmentChart').getContext('2d'),{type:'bar',data:{labels:['Загальне','Тяжкі злочини','Довічне'],datasets:[{label:'Неповнолітні',data:[10,15,0],backgroundColor:'#93c5fd',borderRadius:6,borderSkipped:false},{label:'Дорослі',data:[15,15,25],backgroundColor:'#1e40af',borderRadius:6,borderSkipped:false}]},options:Object.assign({},opts,{scales:{y:{beginAtZero:true,title:{display:true,text:'Термін (років)',color:'#64748b'},grid:{color:'#f1f5f9'}},x:{grid:{display:false}}}})});
+}
+</script>
 </body>
 </html>
