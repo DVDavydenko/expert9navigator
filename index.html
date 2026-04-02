@@ -15,29 +15,19 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyB4-bg-61Ta_-6RUkTKcakReuFklv4zxaA", authDomain: "expert9navigator.firebaseapp.com", projectId: "expert9navigator", storageBucket: "expert9navigator.firebasestorage.app", messagingSenderId: "119347627510", appId: "1:119347627510:web:58a9e5e674e121455a33d7" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'law-guide-9';
+        const firebaseConfig = {
+            apiKey: "AIzaSyDWJcqUyv_a0VgU74QWj3vs2_RcdOgrfJ8",
+            authDomain: "expert9navigator.firebaseapp.com",
+            projectId: "expert9navigator",
+            storageBucket: "expert9navigator.firebasestorage.app",
+            messagingSenderId: "119347627510",
+            appId: "1:119347627510:web:58a9e5e674e121455a33d7"
+        };
+        const APP_ID = 'law-guide-9';
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-
-        // Розблокувати кнопку одразу — не чекати Firebase
-        document.addEventListener('DOMContentLoaded', () => {
-            const btn = document.getElementById('start-btn');
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = "Розпочати роботу →";
-            }
-        });
-        // Додатковий fallback на випадок якщо DOMContentLoaded вже спрацював
-        setTimeout(() => {
-            const btn = document.getElementById('start-btn');
-            if (btn && btn.disabled) {
-                btn.disabled = false;
-                btn.textContent = "Розпочати роботу →";
-            }
-        }, 500);
 
         let currentUser = null;
         let studentData = { name: '', className: '' };
@@ -45,7 +35,9 @@
         let hasInteractedWithSlider = false;
         let timerInterval = null;
         let timeLeft = 25 * 60;
+        let unsubscribeTeacher = null;
 
+        // ============ QUESTION POOLS ============
         const pools = {
             part1: [
                 { q: "Знайди зайве (не є адміністративним заходом впливу щодо неповнолітніх):", options: ["Попередження", "Догана", "Позбавлення волі", "Передача під нагляд батьків"], correct: 2 },
@@ -57,9 +49,9 @@
             part2: [
                 { q: '"11-річний Микола вкрав велосипед, тому він буде відбувати покарання у виховній колонії". У чому помилка?', options: ["Велосипеди не крадуть", "Кримінальна відповідальність за крадіжку настає з 14 років, а не з 11", "Його оштрафують на 1000 грн"], correct: 1 },
                 { q: '"За розпивання алкоголю у парку 14-річного учня обов'язково посадять у в'язницю". У чому помилка?', options: ["За це передбачена адміністративна відповідальність (до 16 років відповідають батьки)", "Його просто відпустять", "Алкоголь можна пити з 14 років"], correct: 0 },
-                { q: '"Якщо 15-річний підліток повідомив про мінування школи — це адміністративний проступок". У чому помилка?', options: ["Це дозволено як жарт", "Мінування штрафується лише на 50 грн", "Це кримінальний злочин (ст. 259 ККУ), відповідальність з 14 років"], correct: 2 },
+                { q: '"Якщо 15-річний підліток повідомив про мінування школи - це адміністративний проступок". У чому помилка?', options: ["Це дозволено як жарт", "Мінування штрафується лише на 50 грн", "Це кримінальний злочин (ст. 259 ККУ), відповідальність з 14 років"], correct: 2 },
                 { q: '"17-річного юнака засудили до довічного ув'язнення за тяжкий злочин". У чому помилка?', options: ["Довічне ув'язнення не застосовується до осіб, які вчинили злочин до 18 років", "Довічне дають з 16 років", "Він має відбувати покарання вдома"], correct: 0 },
-                { q: '"13-річний підліток образив вчителя словесно — це кримінальний злочин". У чому помилка?', options: ["Образа є адміністративним проступком, кримінальна відповідальність настає з 16 років", "Словесна образа взагалі не є правопорушенням", "За це садять лише з 18 років"], correct: 0 },
+                { q: '"13-річний підліток образив вчителя словесно - це кримінальний злочин". У чому помилка?', options: ["Образа є адміністративним проступком, кримінальна відповідальність настає з 16 років", "Словесна образа взагалі не є правопорушенням", "За це садять лише з 18 років"], correct: 0 },
                 { q: '"16-річний учень самостійно сплатив штраф за куріння в школі". У чому помилка?', options: ["Штраф за куріння не передбачений", "До 18 років штрафи платять лише батьки", "Адміністративний штраф неповнолітній може сплатити лише якщо має власний заробіток"], correct: 2 }
             ],
             part3: [
@@ -68,76 +60,60 @@
                 { q: "16-річний юнак їхав у тролейбусі без квитка і відмовився платити штраф контролеру. Хто нестиме юридичну відповідальність?", options: ["Батьки юнака", "Сам юнак (адміністративна відповідальність настає з 16 років)", "Школа, в якій він навчається"], correct: 1 },
                 { q: "13-річний підліток вкрав з магазину шоколадку. Які юридичні наслідки?", options: ["Його посадять у в'язницю", "Він не досяг віку кримінальної відповідальності (14 р.), шкоду відшкодують батьки", "Він заплатить адміністративний штраф"], correct: 1 },
                 { q: "15-річний підліток вночі зламав замок і проник до чужого гаражу. Яка відповідальність настане?", options: ["Адміністративна, бо він неповнолітній", "Кримінальна (незаконне проникнення + крадіжка), відповідальність з 14 років", "Жодної, він ще школяр"], correct: 1 },
-                { q: "17-річна учениця поширила в соцмережах персональні дані однокласника без його згоди. Яка відповідальність?", options: ["Кримінальна відповідальність з 14 років за розголошення таємниці", "Адміністративна відповідальність (повна, з 16 років)", "Жодної, соцмережі — не публічне місце"], correct: 1 }
+                { q: "17-річна учениця поширила в соцмережах персональні дані однокласника без його згоди. Яка відповідальність?", options: ["Кримінальна відповідальність з 14 років за розголошення таємниці", "Адміністративна відповідальність (повна, з 16 років)", "Жодної, соцмережі - не публічне місце"], correct: 1 }
             ],
             part4: [
-                "Уяви, що ти — соціальний працівник. Напиши коротку пораду (2-3 речення) підлітку, який вважає, що «до 18 років можна робити що завгодно, і мені нічого не буде».",
-                "Твій друг (14 років) хоче «заради жарту» подзвонити в поліцію і сказати, що вокзал заміновано. Як ти з юридичної точки зору відмовиш його від цього?",
+                "Уяви, що ти — соціальний працівник. Напиши коротку пораду (2-3 речення) підлітку, який вважає, що до 18 років можна робити що завгодно, і мені нічого не буде.",
+                "Твій друг (14 років) хоче заради жарту подзвонити в поліцію і сказати, що вокзал заміновано. Як ти з юридичної точки зору відмовиш його від цього?",
                 "Поясни молодшому брату простими словами, у чому головна різниця між адміністративним проступком і кримінальним злочином.",
-                "Склади короткий «правовий пам'ятник» для учнів 9 класу: 3 речення про те, чому незнання закону не звільняє від відповідальності.",
+                "Склади короткий правовий памятник для учнів 9 класу: 3 речення про те, чому незнання закону не звільняє від відповідальності.",
                 "Уяви ситуацію: твій 15-річний друг випадково пошкодив чужий автомобіль. Опиши юридичні наслідки та хто і як має відшкодувати збитки.",
                 "Як би ти пояснив різницю між кримінальною та адміністративною відповідальністю на одному конкретному прикладі з реального шкільного життя?"
             ]
         };
 
-        let ui = {};
-        function initUI() {
-            ui = {
-                loginOverlay: document.getElementById('login-overlay'),
-                mainContent: document.getElementById('main-content'),
-                teacherDashboard: document.getElementById('teacher-dashboard'),
-                studentName: document.getElementById('studentName'),
-                studentClass: document.getElementById('studentClass'),
-                loginError: document.getElementById('login-error'),
-                quizContainer: document.getElementById('dynamic-quiz'),
-                teacherPassInput: document.getElementById('teacher-password'),
-                teacherError: document.getElementById('teacher-error'),
-                teacherTableBody: document.getElementById('teacher-table-body')
-            };
-        }
-
+        // ============ FIREBASE AUTH ============
         async function initAuthApp() {
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) { console.error("Auth error:", error); }
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Auth error:", error);
+            }
         }
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('start-btn').disabled = false;
-                document.getElementById('start-btn').textContent = "Розпочати роботу →";
-            }
+            if (user) currentUser = user;
         });
 
-        window.startApp = async function() {
-            const name = ui.studentName.value.trim();
-            const cls = ui.studentClass.value.trim();
+        // ============ STUDENT LOGIN ============
+        window._startApp = async function() {
+            const name = document.getElementById('studentName').value.trim();
+            const cls = document.getElementById('studentClass').value.trim();
+            const loginError = document.getElementById('login-error');
+
             if (!name || !cls) {
-                ui.loginError.textContent = "Будь ласка, введіть ПІБ та клас.";
-                ui.loginError.classList.remove('hidden');
+                loginError.textContent = "Будь ласка, введіть ПІБ та клас.";
+                loginError.classList.remove('hidden');
                 return;
             }
             if (name.length < 5) {
-                ui.loginError.textContent = "Введіть повне прізвище та ім'я.";
-                ui.loginError.classList.remove('hidden');
+                loginError.textContent = "Введіть повне прізвище та ім'я.";
+                loginError.classList.remove('hidden');
                 return;
             }
+
             studentData = { name, className: cls };
-            ui.loginOverlay.classList.add('hidden');
-            ui.mainContent.classList.remove('hidden');
+            document.getElementById('login-overlay').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
             setTimeout(initCharts, 100);
             await checkSubmissionStatus();
         };
 
+        // ============ QUIZ LOGIC ============
         async function checkSubmissionStatus() {
             if (!currentUser) { generateRandomQuiz(); return; }
             try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students_results', currentUser.uid);
+                const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', currentUser.uid);
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     showQuizCompletedState(docSnap.data().scoreAuto);
@@ -150,33 +126,41 @@
         function shuffleArray(array) { return [...array].sort(() => 0.5 - Math.random()); }
 
         function generateRandomQuiz() {
-            const q1_pool = shuffleArray(pools.part1).slice(0, 2); // 2 питання
-            const q2_pool = shuffleArray(pools.part2).slice(0, 3); // 3 питання
-            const q3_pool = shuffleArray(pools.part3).slice(0, 3); // 3 питання
-            const q4_pool = shuffleArray(pools.part4).slice(0, 2); // 2 творчих
-            generatedQuiz = { part1: q1_pool, part2: q2_pool, part3: q3_pool, part4: q4_pool };
+            generatedQuiz = {
+                part1: shuffleArray(pools.part1).slice(0, 2),
+                part2: shuffleArray(pools.part2).slice(0, 3),
+                part3: shuffleArray(pools.part3).slice(0, 3),
+                part4: shuffleArray(pools.part4).slice(0, 2)
+            };
             renderQuizUI();
         }
 
         function renderQuizUI() {
             let html = '';
             let qIndex = 0;
+
             html += `<div class="quiz-section"><div class="section-tag">Частина 01</div><h3 class="section-title">Експерт-теоретик</h3>`;
             generatedQuiz.part1.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
             html += `</div>`;
+
             html += `<div class="quiz-section"><div class="section-tag">Частина 02</div><h3 class="section-title">Юридичний детектив</h3>`;
             generatedQuiz.part2.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
             html += `</div>`;
+
             html += `<div class="quiz-section"><div class="section-tag">Частина 03</div><h3 class="section-title">Правовий консиліум</h3>`;
             generatedQuiz.part3.forEach(q => { html += createRadioQuestionHTML(qIndex++, q.q, q.options); });
             html += `</div>`;
+
             html += `<div class="quiz-section"><div class="section-tag">Частина 04</div><h3 class="section-title">Соціальний прогноз <span style="font-size:0.75rem;font-weight:400;opacity:0.6;">(Творчі завдання)</span></h3>`;
             generatedQuiz.part4.forEach((prompt, i) => {
-                html += `<div class="question-block"><p class="question-text"><span class="q-num">Т${i+1}</span>${prompt}</p>
-                <textarea id="creativeAnswer_${i}" rows="4" class="creative-textarea" placeholder="Напишіть вашу відповідь тут..."></textarea></div>`;
+                html += `<div class="question-block">
+                    <p class="question-text"><span class="q-num">Т${i+1}</span>${prompt}</p>
+                    <textarea id="creativeAnswer_${i}" rows="4" class="creative-textarea" placeholder="Напишіть вашу відповідь тут..."></textarea>
+                </div>`;
             });
             html += `</div>`;
-            ui.quizContainer.innerHTML = html;
+
+            document.getElementById('dynamic-quiz').innerHTML = html;
         }
 
         function createRadioQuestionHTML(index, question, options) {
@@ -188,56 +172,59 @@
             return html;
         }
 
-        window.submitQuiz = async function(isAutoSubmit = false) {
+        window._submitQuiz = async function(isAutoSubmit = false) {
             if (!generatedQuiz) return;
             let scoreAuto = 0;
             let qIndex = 0;
-            // Частина 1 (2 питання)
+
             generatedQuiz.part1.forEach(q => {
                 const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
                 if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
             });
-            // Частина 2 (3 питання)
             generatedQuiz.part2.forEach(q => {
                 const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
                 if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
             });
-            // Частина 3 (3 питання)
             generatedQuiz.part3.forEach(q => {
                 const ans = document.querySelector(`input[name="q_${qIndex++}"]:checked`);
                 if (ans && parseInt(ans.value) === q.correct) scoreAuto++;
             });
-            // Частина 4 — 2 творчих
+
             const creativeTexts = generatedQuiz.part4.map((_, i) => {
                 const el = document.getElementById(`creativeAnswer_${i}`);
                 return el ? el.value.trim() : '';
             });
+
             if (!isAutoSubmit && creativeTexts.some(t => t.length < 10)) {
                 alert("Будь ласка, дайте розгорнуту відповідь на обидва творчі завдання (Частина 4).");
                 return;
             }
-            const creativeText = creativeTexts.join('\n\n--- Завдання 2 ---\n\n');
+
             if (timerInterval) clearInterval(timerInterval);
+
             const submitBtn = document.getElementById('submit-btn');
-            if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Відправлення..."; }
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Відправлення..."; }
+
             const resultData = {
-                studentName: studentData.name, className: studentData.className,
-                scoreAuto: scoreAuto, totalAuto: 8,
+                studentName: studentData.name,
+                className: studentData.className,
+                scoreAuto: scoreAuto,
+                totalAuto: 8,
                 creativePrompt: generatedQuiz.part4.join(' | '),
-                creativeAnswer: creativeText,
+                creativeAnswer: creativeTexts.join('\n\n--- Завдання 2 ---\n\n'),
                 timestamp: new Date().toISOString()
             };
-            // Зберігаємо у Firebase лише якщо є авторизований користувач
+
             if (currentUser) {
                 try {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'students_results', currentUser.uid);
+                    const docRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', currentUser.uid);
                     await setDoc(docRef, resultData);
                 } catch (error) {
-                    console.warn("Firebase недоступний, результат збережено локально:", error);
+                    console.warn("Firebase error:", error);
                 }
             }
             showQuizCompletedState(scoreAuto);
-        }
+        };
 
         function showQuizCompletedState(score) {
             document.getElementById('simulator-form').classList.add('hidden');
@@ -245,54 +232,70 @@
             document.getElementById('final-score-display').textContent = `${score} / 8`;
         }
 
-        window.unlockQuiz = function() {
-            if(!hasInteractedWithSlider) return;
+        window._unlockQuiz = function() {
+            if (!hasInteractedWithSlider) return;
             document.getElementById('quiz-lock-screen').classList.add('hidden');
             document.getElementById('quiz-active-screen').classList.remove('hidden');
             document.getElementById('quiz-active-screen').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
             const timerDisplay = document.getElementById('timer-display');
             timerInterval = setInterval(() => {
                 timeLeft--;
-                let m = Math.floor(timeLeft / 60);
-                let s = timeLeft % 60;
-                timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                const m = Math.floor(timeLeft / 60);
+                const s = timeLeft % 60;
+                timerDisplay.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
                 if (timeLeft <= 60) timerDisplay.classList.add('timer-urgent');
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
-                    alert("⏱️ Час вичерпано! Вашу роботу буде автоматично відправлено на перевірку.");
+                    alert("Час вичерпано! Роботу буде автоматично відправлено.");
                     window.submitQuiz(true);
                 }
             }, 1000);
-        }
+        };
 
-        window.showTeacherLogin = function() { document.getElementById('teacher-login-modal').classList.remove('hidden'); }
-        window.closeTeacherLogin = function() { document.getElementById('teacher-login-modal').classList.add('hidden'); }
+        // ============ TEACHER ============
+        window._showTeacherLogin = function() {
+            document.getElementById('teacher-login-modal').classList.remove('hidden');
+        };
 
-        window.loginTeacher = function() {
-            const pass = ui.teacherPassInput.value;
+        window._closeTeacherLogin = function() {
+            document.getElementById('teacher-login-modal').classList.add('hidden');
+            document.getElementById('teacher-password').value = '';
+            document.getElementById('teacher-error').classList.add('hidden');
+        };
+
+        window._loginTeacher = function() {
+            const pass = document.getElementById('teacher-password').value;
             if (pass === 'TechDev999') {
-                ui.loginOverlay.classList.add('hidden');
                 document.getElementById('teacher-login-modal').classList.add('hidden');
-                ui.teacherDashboard.classList.remove('hidden');
+                document.getElementById('login-overlay').classList.add('hidden');
+                document.getElementById('main-content').classList.add('hidden');
+                document.getElementById('teacher-dashboard').classList.remove('hidden');
                 loadTeacherData();
-            } else { ui.teacherError.classList.remove('hidden'); }
-        }
+            } else {
+                document.getElementById('teacher-error').classList.remove('hidden');
+            }
+        };
 
-        let unsubscribeTeacher = null;
         function loadTeacherData() {
-            if (!currentUser) return;
-            const collRef = collection(db, 'artifacts', appId, 'public', 'data', 'students_results');
+            const tbody = document.getElementById('teacher-table-body');
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:32px;text-align:center;color:#94a3b8;">Завантаження...</td></tr>';
+
+            const collRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'students_results');
             unsubscribeTeacher = onSnapshot(collRef, (snapshot) => {
-                ui.teacherTableBody.innerHTML = '';
-                if (snapshot.empty) { ui.teacherTableBody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-500">Ще немає результатів учнів.</td></tr>'; return; }
+                tbody.innerHTML = '';
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#94a3b8;">Ще немає результатів учнів.</td></tr>';
+                    return;
+                }
                 let results = [];
-                snapshot.forEach(doc => results.push({id: doc.id, ...doc.data()}));
+                snapshot.forEach(d => results.push({ id: d.id, ...d.data() }));
                 results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
                 results.forEach((data, index) => {
-                    const dateObj = new Date(data.timestamp);
-                    const dateStr = dateObj.toLocaleDateString('uk-UA') + ' ' + dateObj.toLocaleTimeString('uk-UA', {hour: '2-digit', minute:'2-digit'});
+                    const dateStr = new Date(data.timestamp).toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
                     const tr = document.createElement('tr');
-                    tr.className = "teacher-row";
+                    tr.className = 'teacher-row';
                     tr.innerHTML = `
                         <td class="p-4 text-sm text-slate-400 font-mono">${String(index+1).padStart(2,'0')}</td>
                         <td class="p-4 text-sm font-bold text-slate-800">${escapeHtml(data.studentName)}</td>
@@ -301,7 +304,7 @@
                         <td class="p-4"><span class="score-badge ${data.scoreAuto >= 6 ? 'score-good' : 'score-mid'}">${data.scoreAuto} / 8</span></td>
                         <td class="p-4 text-sm text-slate-600">
                             <details class="cursor-pointer">
-                                <summary class="font-semibold text-blue-600 hover:text-blue-900 cursor-pointer list-none flex items-center gap-1"><span>▶</span> Показати</summary>
+                                <summary class="font-semibold text-blue-600 hover:text-blue-900 list-none flex items-center gap-1"><span>▶</span> Показати</summary>
                                 <div class="mt-2 p-3 bg-slate-50 rounded-lg text-xs border border-slate-200">
                                     <p class="italic text-slate-400 mb-1">${escapeHtml(data.creativePrompt)}</p>
                                     <p class="text-slate-700">${escapeHtml(data.creativeAnswer)}</p>
@@ -309,47 +312,50 @@
                             </details>
                         </td>
                         <td class="p-4">
-                            <button onclick="resetStudentResult('${data.id}', '${escapeHtml(data.studentName)}')" style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
+                            <button onclick="resetStudentResult('${data.id}', '${escapeHtml(data.studentName)}')"
+                                style="background:#ef4444;color:#fff;border:none;padding:6px 14px;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;"
+                                onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
                                 Скинути
                             </button>
                         </td>`;
-                    ui.teacherTableBody.appendChild(tr);
+                    tbody.appendChild(tr);
                 });
-            }, (error) => { ui.teacherTableBody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-500">Помилка завантаження даних.</td></tr>'; });
+            }, (error) => {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:24px;text-align:center;color:#dc2626;">Помилка завантаження.</td></tr>';
+            });
         }
 
-        window.exitTeacherMode = function() {
-            if(unsubscribeTeacher) unsubscribeTeacher();
-            ui.teacherDashboard.classList.add('hidden');
-            ui.loginOverlay.classList.remove('hidden');
-            ui.teacherPassInput.value = '';
-            ui.teacherError.classList.add('hidden');
-        }
-
-        window.resetStudentResult = async function(docId, studentName) {
-            if (!confirm("Видалити роботу учня " + studentName + "? Він зможе здати її знову.")) return;
+        window._resetStudentResult = async function(docId, studentName) {
+            if (!confirm(`Видалити роботу учня "${studentName}"? Він зможе здати її знову.`)) return;
             try {
-                const docRef = doc(db, "artifacts", appId, "public", "data", "students_results", docId);
-                await deleteDoc(docRef);
-                showToast("✅ Роботу учня " + studentName + " видалено.");
-            } catch (error) {
-                console.error("Помилка видалення:", error);
-                showToast("❌ Помилка при видаленні. Спробуйте ще раз.");
+                await deleteDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'students_results', docId));
+                showToast(`Роботу учня "${studentName}" видалено.`);
+            } catch (e) {
+                showToast("Помилка при видаленні. Спробуйте ще раз.");
             }
-        }
+        };
+
+        window._exitTeacherMode = function() {
+            if (unsubscribeTeacher) unsubscribeTeacher();
+            document.getElementById('teacher-dashboard').classList.add('hidden');
+            document.getElementById('login-overlay').classList.remove('hidden');
+            document.getElementById('teacher-password').value = '';
+            document.getElementById('teacher-error').classList.add('hidden');
+        };
 
         function showToast(message) {
-            const toast = document.createElement("div");
-            toast.style.cssText = "position:fixed;bottom:24px;right:24px;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:4px;font-family:IBM Plex Sans,sans-serif;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);";
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1e3a5f;color:#fff;padding:14px 20px;border-radius:4px;font-family:sans-serif;font-size:14px;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);';
             toast.textContent = message;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 3500);
         }
 
         function escapeHtml(unsafe) {
-            return (unsafe || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            return (unsafe || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
         }
 
+        // ============ AGE SLIDER ============
         const ageData = {
             10: { criminal: "Не несе кримінальної відповідальності.", admin: "Не несе адміністративної відповідальності.", level: 0 },
             11: { criminal: "Не несе кримінальної відповідальності. Можливі примусові заходи виховного характеру.", admin: "Не несе адміністративної відповідальності.", level: 0 },
@@ -362,85 +368,79 @@
             18: { criminal: "Відповідальність як ДОРОСЛОЇ особи. Жодних поблажок.", admin: "Повна адміністративна відповідальність на загальних підставах.", level: 2 }
         };
 
-        const ageSlider = document.getElementById('ageSlider');
-        const currentAgeDisplay = document.getElementById('currentAgeDisplay');
-        const criminalStatus = document.getElementById('criminalStatus');
-        const adminStatus = document.getElementById('adminStatus');
-        const statusBar = document.getElementById('status-bar');
-
         function updateAgeInfo(age) {
             const d = ageData[age];
-            currentAgeDisplay.textContent = age;
-            criminalStatus.textContent = d.criminal;
-            adminStatus.textContent = d.admin;
+            document.getElementById('currentAgeDisplay').textContent = age;
+            document.getElementById('criminalStatus').textContent = d.criminal;
+            document.getElementById('adminStatus').textContent = d.admin;
             const colors = ['#2563eb','#d97706','#dc2626'];
             const labels = ['Безпечна зона','Часткова відповідальність','Повна відповідальність'];
             const pct = ((age - 10) / 8) * 100;
-            statusBar.style.background = `linear-gradient(90deg, ${colors[d.level]} ${pct}%, #e2e8f0 ${pct}%)`;
-            currentAgeDisplay.style.color = colors[d.level];
+            document.getElementById('status-bar').style.background = `linear-gradient(90deg, ${colors[d.level]} ${pct}%, #e2e8f0 ${pct}%)`;
+            document.getElementById('currentAgeDisplay').style.color = colors[d.level];
             document.getElementById('status-label').textContent = labels[d.level];
             document.getElementById('status-label').style.color = colors[d.level];
         }
 
-        ageSlider.addEventListener('input', (e) => {
-            updateAgeInfo(e.target.value);
-            if (!hasInteractedWithSlider) {
-                hasInteractedWithSlider = true;
-                const unlockBtn = document.getElementById('unlock-quiz-btn');
-                if (unlockBtn) {
-                    unlockBtn.disabled = false;
-                    unlockBtn.classList.remove('btn-locked');
-                    unlockBtn.classList.add('btn-unlocked');
-                    unlockBtn.textContent = "Розпочати практичну роботу (25 хвилин) →";
-                }
-            }
-        });
-        updateAgeInfo(14);
-
+        // ============ CHARTS ============
         function initCharts() {
-            const chartDefaults = {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans', size: 12 }, color: '#475569', padding: 16, usePointStyle: true } } }
-            };
+            const opts = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { family: 'IBM Plex Sans', size: 12 }, color: '#475569', padding: 16, usePointStyle: true } } } };
 
-            const ctxOffenses = document.getElementById('offensesChart');
-            if(ctxOffenses) {
-                new Chart(ctxOffenses.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Майнові (Крадіжки)', 'Хуліганство', 'Наркотичні', 'Інші'],
-                        datasets: [{ data: [55, 25, 10, 10], backgroundColor: ['#1e40af','#f59e0b','#ef4444','#cbd5e1'], borderWidth: 3, borderColor: '#fff' }]
-                    },
-                    options: { ...chartDefaults, cutout: '65%' }
-                });
-            }
+            const ctxO = document.getElementById('offensesChart');
+            if (ctxO) new Chart(ctxO.getContext('2d'), {
+                type: 'doughnut',
+                data: { labels: ['Майнові (Крадіжки)', 'Хуліганство', 'Наркотичні', 'Інші'], datasets: [{ data: [55,25,10,10], backgroundColor: ['#1e40af','#f59e0b','#ef4444','#cbd5e1'], borderWidth: 3, borderColor: '#fff' }] },
+                options: { ...opts, cutout: '65%' }
+            });
 
-            const ctxPunishment = document.getElementById('punishmentChart');
-            if(ctxPunishment) {
-                new Chart(ctxPunishment.getContext('2d'), {
-                    type: 'bar',
-                    data: {
-                        labels: ['Загальне', 'Тяжкі злочини', 'Довічне'],
-                        datasets: [
-                            { label: 'Неповнолітні', data: [10, 15, 0], backgroundColor: '#93c5fd', borderRadius: 6, borderSkipped: false },
-                            { label: 'Дорослі', data: [15, 15, 25], backgroundColor: '#1e40af', borderRadius: 6, borderSkipped: false }
-                        ]
-                    },
-                    options: { ...chartDefaults, scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'Термін (років)', font: { family: 'IBM Plex Sans' }, color: '#64748b' }, grid: { color: '#f1f5f9' } },
-                        x: { grid: { display: false } }
-                    }}
-                });
-            }
+            const ctxP = document.getElementById('punishmentChart');
+            if (ctxP) new Chart(ctxP.getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['Загальне', 'Тяжкі злочини', 'Довічне'], datasets: [
+                    { label: 'Неповнолітні', data: [10,15,0], backgroundColor: '#93c5fd', borderRadius: 6, borderSkipped: false },
+                    { label: 'Дорослі', data: [15,15,25], backgroundColor: '#1e40af', borderRadius: 6, borderSkipped: false }
+                ]},
+                options: { ...opts, scales: { y: { beginAtZero: true, title: { display: true, text: 'Термін (років)', color: '#64748b' }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } }
+            });
         }
 
-        // Ініціалізуємо UI після завантаження DOM
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => { initUI(); initAuthApp(); });
-        } else {
-            initUI(); initAuthApp();
-        }
+        // ============ INIT ============
+        document.addEventListener('DOMContentLoaded', () => {
+            // Slider
+            const slider = document.getElementById('ageSlider');
+            slider.addEventListener('input', (e) => {
+                updateAgeInfo(parseInt(e.target.value));
+                if (!hasInteractedWithSlider) {
+                    hasInteractedWithSlider = true;
+                    const btn = document.getElementById('unlock-quiz-btn');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('btn-locked');
+                        btn.classList.add('btn-unlocked');
+                        btn.textContent = 'Розпочати практичну роботу (25 хвилин) →';
+                    }
+                }
+            });
+            updateAgeInfo(14);
+
+            // Start Firebase auth
+            initAuthApp();
+        });
+
     </script>
+    <!-- Bridge: expose module functions to global scope for onclick handlers -->
+    <script>
+        // These will be populated by the module after DOMContentLoaded
+        function startApp() { if(window._startApp) window._startApp(); }
+        function showTeacherLogin() { if(window._showTeacherLogin) window._showTeacherLogin(); }
+        function closeTeacherLogin() { if(window._closeTeacherLogin) window._closeTeacherLogin(); }
+        function loginTeacher() { if(window._loginTeacher) window._loginTeacher(); }
+        function unlockQuiz() { if(window._unlockQuiz) window._unlockQuiz(); }
+        function submitQuiz(auto) { if(window._submitQuiz) window._submitQuiz(auto); }
+        function exitTeacherMode() { if(window._exitTeacherMode) window._exitTeacherMode(); }
+        function resetStudentResult(id, name) { if(window._resetStudentResult) window._resetStudentResult(id, name); }
+    </script>
+
 
     <style>
         :root {
@@ -814,7 +814,7 @@
                     <label class="login-label">Клас</label>
                     <input type="text" id="studentClass" placeholder="9-А" class="login-input">
                 </div>
-                <button id="start-btn" onclick="startApp()" class="login-btn">Розпочати роботу →</button>
+                <button id="start-btn" onclick="startApp()" disabled class="login-btn">Завантаження системи...</button>
             </div>
 
             <div style="text-align:center;padding-top:16px;border-top:1px solid #f1f5f9;">
